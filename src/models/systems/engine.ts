@@ -238,6 +238,7 @@ export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemMode
   });
   const gasMesh = new THREE.Mesh(new THREE.CylinderGeometry(cylRadius - 0.03, cylRadius - 0.03, 1, 24), gasMat);
   gasMesh.position.set(0, 1.0, 0);
+  gasMesh.userData.lessonOnly = true;
   assembly.add(gasMesh);
 
   // Intake & Exhaust flow particle streams
@@ -422,6 +423,7 @@ export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemMode
   });
   const sparkFlash = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 1), sparkFlashMat);
   sparkFlash.position.y = -0.26;
+  sparkFlash.userData.lessonOnly = true;
   sparkSub.add(sparkFlash);
   sparkGroup.add(sparkSub);
 
@@ -477,14 +479,14 @@ export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemMode
   }
 
   const explodables: ExplodableEntry[] = [
-    { object: blockGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0, -0.82) },
-    { object: pistonGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.72, 0.25, 0.35) },
-    { object: conRodGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.72, -0.05, 0.35) },
-    { object: crankGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, -0.48, 0) },
-    { object: camGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.72, -0.25) },
-    { object: intakeGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.62, 0.5, 0.22) },
-    { object: exhaustGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.62, 0.5, 0.22) },
-    { object: sparkGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.92, 0.22) },
+    { object: blockGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, -0.1, -1.05) },
+    { object: pistonGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.95, 0.25, 0.42) },
+    { object: conRodGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.95, -0.15, 0.42) },
+    { object: crankGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, -0.95, 0.15) },
+    { object: camGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 2.05, 0.12) },
+    { object: intakeGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.92, 0.9, 0.45) },
+    { object: exhaustGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.92, 0.9, 0.45) },
+    { object: sparkGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 3.25, 0.95) },
   ];
 
   // Label anchors attached to moving/exploding parts
@@ -626,6 +628,7 @@ export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemMode
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       if (sim.playing) {
         const motionFactor = sim.reduceMotion ? 0.35 : 1;

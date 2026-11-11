@@ -8,6 +8,7 @@ export interface HeaderBarActions {
   onResetView: () => void;
   onToggleXRay: () => void;
   onToggleReduceMotion: () => void;
+  onToggleQuality: () => void;
 }
 
 const RENDER_MODES: { id: RenderMode; label: string }[] = [
@@ -27,6 +28,7 @@ const DEFAULT_CAR_THUMB =
 export interface HeaderBarHandle {
   setCarSummary: (name: string, thumbnailSrc?: string) => void;
   setCarPickerExpanded: (expanded: boolean) => void;
+  setSolidEnabled: (enabled: boolean, tooltip?: string) => void;
   destroy: () => void;
 }
 
@@ -128,6 +130,14 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
         </button>
         <button
           type="button"
+          class="icon-action-btn quality-pill-btn"
+          id="btn-quality"
+          aria-pressed="true"
+          aria-label="Toggle graphics quality"
+          data-tooltip="Quality: High"
+        >HQ</button>
+        <button
+          type="button"
           class="icon-action-btn"
           id="btn-reset-view"
           aria-label="Reset camera view"
@@ -144,13 +154,16 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
   parent.appendChild(header);
 
   const modeButtons = Array.from(header.querySelectorAll<HTMLButtonElement>('.mode-seg-btn'));
+  const renderModeSeg = header.querySelector<HTMLElement>('.render-mode-seg')!;
   const renderModeButtons = Array.from(header.querySelectorAll<HTMLButtonElement>('.render-mode-btn'));
+  const solidModeBtn = renderModeButtons.find((b) => b.dataset.renderMode === 'solid');
   const btnCarPicker = header.querySelector<HTMLButtonElement>('#btn-car-picker')!;
   const carPickerName = header.querySelector<HTMLElement>('#car-picker-name')!;
   const carPickerThumb = header.querySelector<HTMLImageElement>('#car-picker-thumb')!;
   const btnGlossary = header.querySelector<HTMLButtonElement>('#btn-open-glossary')!;
   const btnXRay = header.querySelector<HTMLButtonElement>('#btn-xray')!;
   const btnMotion = header.querySelector<HTMLButtonElement>('#btn-reduce-motion')!;
+  const btnQuality = header.querySelector<HTMLButtonElement>('#btn-quality')!;
   const btnReset = header.querySelector<HTMLButtonElement>('#btn-reset-view')!;
 
   for (const btn of modeButtons) {
@@ -171,6 +184,7 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
   btnGlossary.addEventListener('click', actions.onOpenGlossary);
   btnXRay.addEventListener('click', actions.onToggleXRay);
   btnMotion.addEventListener('click', actions.onToggleReduceMotion);
+  btnQuality.addEventListener('click', actions.onToggleQuality);
   btnReset.addEventListener('click', actions.onResetView);
 
   const isExploreOrLesson = (vm: ViewMode) => vm === 'home' || vm === 'lesson';
@@ -178,6 +192,13 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
   const unsubscribe = appStore.subscribe((state) => {
     btnXRay.setAttribute('aria-pressed', String(state.xrayCar));
     btnMotion.setAttribute('aria-pressed', String(state.reduceMotion));
+    const isHigh = state.graphicsQuality === 'high';
+    btnQuality.textContent = isHigh ? 'HQ' : 'LQ';
+    btnQuality.setAttribute('aria-pressed', String(isHigh));
+    btnQuality.setAttribute(
+      'data-tooltip',
+      isHigh ? 'Quality: High (2× DPR & Soft Shadows)' : 'Quality: Low (Fast Mobile Mode)',
+    );
     for (const btn of renderModeButtons) {
       btn.setAttribute('aria-pressed', String(btn.dataset.renderMode === state.renderMode));
     }
@@ -198,6 +219,19 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
     },
     setCarPickerExpanded: (expanded: boolean) => {
       btnCarPicker.setAttribute('aria-expanded', String(expanded));
+    },
+    setSolidEnabled: (enabled: boolean, tooltip?: string) => {
+      if (solidModeBtn) {
+        solidModeBtn.disabled = !enabled;
+        solidModeBtn.setAttribute('aria-disabled', String(!enabled));
+        if (!enabled && tooltip) {
+          solidModeBtn.title = tooltip;
+          renderModeSeg.setAttribute('data-tooltip', tooltip);
+        } else {
+          solidModeBtn.removeAttribute('title');
+          renderModeSeg.removeAttribute('data-tooltip');
+        }
+      }
     },
     destroy: () => {
       unsubscribe();

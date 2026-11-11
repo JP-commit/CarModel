@@ -4,31 +4,73 @@
     "name": "Sports Coupe",
     "bodyType": "2-Door Coupe",
     "powertrain": "petrol",
+    "style": "realistic",
+    "quality": "full",
     "modelFile": "/models/CarConcept.glb",
     "thumbnail": "/thumbnails/coupe.svg",
     "defaultCamera": {
-      "position": [3.75, 1.85, 4.15],
-      "target": [0, 0.52, 0],
-      "mobilePosition": [7.6, 3.0, 8.5],
-      "mobileTarget": [0, -0.18, 0]
+      "position": [
+        3.75,
+        1.85,
+        4.15
+      ],
+      "target": [
+        0,
+        0.52,
+        0
+      ],
+      "mobilePosition": [
+        7.6,
+        3,
+        8.5
+      ],
+      "mobileTarget": [
+        0,
+        -0.18,
+        0
+      ]
     },
     "systems": {
       "engine": {
         "anchorNode": "Engine",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.55, 0.96, 1.45],
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.55,
+          0.96,
+          1.45
+        ],
         "meshNames": []
       },
       "transmission": {
         "anchorNode": "Anchor_transmission",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.85, 0.88, 0.5],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.85,
+          0.88,
+          0.5
+        ],
         "meshNames": []
       },
       "brakes": {
         "anchorNode": "WheelFrontLBrakeDisc",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.35, 0.45, 0.78],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.35,
+          0.45,
+          0.78
+        ],
         "meshNames": [
           "WheelFrontLBrakeDisc",
           "WheelFrontLBrakePad",
@@ -42,14 +84,32 @@
       },
       "suspension": {
         "anchorNode": "WheelRearLBrakeDisc",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [1.45, 0.58, -0.82],
-        "meshNames": ["Axles"]
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.45,
+          0.58,
+          -0.82
+        ],
+        "meshNames": [
+          "Axles"
+        ]
       },
       "steering": {
         "anchorNode": "InteriorSteeringWheel01",
-        "cameraTarget": [0, -0.04, 0],
-        "cameraOffset": [1.18, 1.08, 0.9],
+        "cameraTarget": [
+          0,
+          -0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.18,
+          1.08,
+          0.9
+        ],
         "meshNames": [
           "InteriorSteeringWheel01",
           "InteriorSteeringWheel02",
@@ -63,23 +123,223 @@
       },
       "electrical": {
         "anchorNode": "Anchor_electrical",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [-1.45, 0.94, 1.3],
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          -1.45,
+          0.94,
+          1.3
+        ],
         "meshNames": []
       },
       "cooling": {
         "anchorNode": "Anchor_cooling",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [0.92, 0.62, 1.72],
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.92,
+          0.62,
+          1.72
+        ],
         "meshNames": []
       },
       "exhaust": {
         "anchorNode": "Anchor_exhaust",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [1.5, 0.56, -1.42],
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.5,
+          0.56,
+          -1.42
+        ],
         "meshNames": []
       }
     },
+    "nodeMap": {
+      "shell": [
+        "BodyUnderside",
+        "BodyRoofPanel",
+        "BodyRearPanelsColor1",
+        "BodyTurnsignalsRear",
+        "BodyTaillightsPanels",
+        "BodyTaillights",
+        "BodyPillars",
+        "BodyPanelsColor2",
+        "BodyHeadlights",
+        "BodyHoodInterior01",
+        "BodyHoodInterior02",
+        "BodyHoodTopgrill",
+        "BodyHoodUnder"
+      ],
+      "glass": [
+        "BodyWindshield",
+        "BodyWindowsRearSides",
+        "BodyRearwindow",
+        "BodyDoorLWindow",
+        "BodyDoorRWindow"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLColor1",
+        "BodyDoorLColor2",
+        "BodyDoorLHandle01",
+        "BodyDoorLHandle02",
+        "BodyDoorLMirror",
+        "BodyDoorLMirrorColor1",
+        "BodyDoorLMirrorColor2",
+        "BodyDoorRColor1",
+        "BodyDoorRColor2",
+        "BodyDoorRHandle01",
+        "BodyDoorRHandle02",
+        "BodyDoorRMirror",
+        "BodyDoorRMirrorColor1",
+        "BodyDoorRMirrorColor2"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.78
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield",
+          "BodyWindshieldGasket",
+          "BodyWindshieldWipers",
+          "BodyWindshieldWipersBase"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLColor1"
+        ],
+        "direction": [
+          1,
+          0.14,
+          0
+        ],
+        "distance": 0.58
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRColor1"
+        ],
+        "direction": [
+          -1,
+          0.14,
+          0
+        ],
+        "distance": 0.58
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanelsColor1",
+          "BodyTaillightsPanels",
+          "BodyTaillights",
+          "BodyTurnsignalsRear"
+        ],
+        "direction": [
+          0,
+          0.42,
+          -0.88
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyPanelsColor2"
+        ],
+        "direction": [
+          0,
+          0.25,
+          0.45
+        ],
+        "distance": 0.36
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.18
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.18
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.18
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.18
+        ],
+        "distance": 0.48
+      }
+    ],
     "credits": {
       "author": "Eric Chadwick / Darmstadt Graphics Group (CC0 base by Unity Fan)",
       "license": "CC-BY-4.0",
@@ -87,35 +347,989 @@
     }
   },
   {
-    "id": "sedan",
-    "name": "Sedan",
-    "bodyType": "4-Door Sedan",
+    "id": "bmw-m8",
+    "name": "BMW M8 Competition",
+    "bodyType": "Luxury GT Coupe",
     "powertrain": "petrol",
-    "modelFile": "/models/Sedan.glb",
+    "style": "realistic",
+    "quality": "full",
+    "modelFile": "/models/bmw-m8.glb",
     "thumbnail": "/thumbnails/sedan.svg",
     "defaultCamera": {
-      "position": [3.95, 1.95, 4.35],
-      "target": [0, 0.58, 0],
-      "mobilePosition": [7.8, 3.1, 8.7],
-      "mobileTarget": [0, -0.16, 0]
+      "position": [
+        3.9,
+        1.9,
+        4.3
+      ],
+      "target": [
+        0,
+        0.56,
+        0
+      ],
+      "mobilePosition": [
+        7.8,
+        3.1,
+        8.6
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
     },
     "systems": {
       "engine": {
         "anchorNode": "Anchor_engine",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [1.55, 0.98, 1.45],
-        "meshNames": ["BodyHood"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.55,
+          0.96,
+          1.45
+        ],
+        "meshNames": []
       },
       "transmission": {
         "anchorNode": "Anchor_transmission",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.85, 0.88, 0.5],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.85,
+          0.88,
+          0.5
+        ],
         "meshNames": []
       },
       "brakes": {
         "anchorNode": "Anchor_brakes",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.38, 0.48, 0.82],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.35,
+          0.45,
+          0.78
+        ],
+        "meshNames": []
+      },
+      "suspension": {
+        "anchorNode": "Anchor_suspension",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.45,
+          0.58,
+          -0.82
+        ],
+        "meshNames": []
+      },
+      "steering": {
+        "anchorNode": "Anchor_steering",
+        "cameraTarget": [
+          0,
+          -0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.18,
+          1.08,
+          0.9
+        ],
+        "meshNames": []
+      },
+      "electrical": {
+        "anchorNode": "Anchor_electrical",
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          -1.45,
+          0.94,
+          1.3
+        ],
+        "meshNames": []
+      },
+      "cooling": {
+        "anchorNode": "Anchor_cooling",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.92,
+          0.62,
+          1.72
+        ],
+        "meshNames": []
+      },
+      "exhaust": {
+        "anchorNode": "Anchor_exhaust",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.5,
+          0.56,
+          -1.42
+        ],
+        "meshNames": []
+      }
+    },
+    "nodeMap": {
+      "shell": [
+        "BodyShell_Object_2_BMW_M8RewardRecycled_2020BadgeB_M",
+        "BodyShell_Object_3_BMW_M8RewardRecycled_2020LicenseP",
+        "BodyShell_Object_4_BMW_M8RewardRecycled_2020LightA_M",
+        "BodyShell_Object_5_BMW_M8RewardRecycled_2020Base_Mat",
+        "BodyShell_Object_8_BMW_M8RewardRecycled_2020Grille3A",
+        "BodyShell_Object_9_BMW_M8RewardRecycled_2020Grille4A",
+        "BodyShell_Object_10_BMW_M8RewardRecycled_2020Grille5",
+        "BodyShell_Object_11_BMW_M8RewardRecycled_2020Grille6",
+        "BodyShell_Object_15_redlight_0",
+        "BodyShell_Object_16_whitelight_0",
+        "BodyShell_Object_18_BMW_M8RewardRecycled_2020Base_Ma",
+        "BodyShell_Object_19_BMW_M8RewardRecycled_2020Carbon1",
+        "BodyShell_Object_20_BMW_M8RewardRecycled_2020Carbon1",
+        "BodyShell_Object_21_BMW_M8RewardRecycled_2020Carbon1",
+        "BodyShell_Object_22_BMW_M8RewardRecycled_2020Carbon1",
+        "BodyShell_Object_23_BMW_M8RewardRecycled_2020Carbon1",
+        "BodyShell_Object_26_BMW_M8RewardRecycled_2020Coloure",
+        "BodyShell_Object_27_BMW_M8RewardRecycled_2020Coloure",
+        "BodyShell_Object_28_BMW_M8RewardRecycled_2020Coloure",
+        "BodyShell_Object_29_BMW_M8RewardRecycled_2020Coloure",
+        "BodyShell_Object_30_BMW_M8RewardRecycled_2020Coloure",
+        "BodyShell_Object_33_BMW_M8RewardRecycled_2020EngineA",
+        "BodyShell_Object_35_BMW_M8RewardRecycled_2020Grille2",
+        "BodyShell_Object_39_BMW_M8RewardRecycled_2020Paint_M",
+        "BodyShell_Object_40_BMW_M8RewardRecycled_2020Paint_M",
+        "BodyShell_Object_41_BMW_M8RewardRecycled_2020Paint_M",
+        "BodyShell_Object_42_BMW_M8RewardRecycled_2020Paint_M",
+        "BodyShell_Object_44_BMW_M8RewardRecycled_2020Paint_M",
+        "BodyShell_Object_46_badge_001_0",
+        "BodyShell_Object_47_col2_0",
+        "BodyShell_Object_48_rim_001_0",
+        "BodyShell_Object_48_rim_001_0_2",
+        "BodyShell_Object_49_rim_001_0",
+        "BodyShell_Object_50_rim_001_0",
+        "BodyShell_Object_50_rim_001_0_2",
+        "BodyShell_Object_51_rim_001_0",
+        "BodyShell_Object_52_rim_001_0",
+        "BodyShell_Object_52_rim_001_0_2",
+        "BodyShell_Object_53_rim_001_0",
+        "BodyShell_Object_54_rim_001_0",
+        "BodyShell_Object_54_rim_001_0_2",
+        "BodyShell_Object_55_rim_001_0",
+        "BodyShell_Object_56_rotor_0",
+        "BodyShell_Object_57_tire_001_0",
+        "BodyShell_Object_40_001_BMW_M8RewardRecycled_2020Pai",
+        "BodyShell_Object_40_002_BMW_M8RewardRecycled_2020Pai"
+      ],
+      "glass": [
+        "Glass_Object_13_BMW_M8RewardRecycled_2020WindowI",
+        "Glass_Object_45_BMW_M8RewardRecycled_2020Window_"
+      ],
+      "wheels": {
+        "fl": null,
+        "fr": null,
+        "rl": null,
+        "rr": null
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorR_Object_43_BMW_M8RewardRecycled_2020Paint_M"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.75
+        ],
+        "distance": 0.6
+      },
+      {
+        "nodeNames": [
+          "BodyDoorR_Object_43_BMW_M8RewardRecycled_2020Paint_M"
+        ],
+        "direction": [
+          -1,
+          0.14,
+          0
+        ],
+        "distance": 0.55
+      },
+      {
+        "nodeNames": [
+          "Glass_Object_13_BMW_M8RewardRecycled_2020WindowI",
+          "Glass_Object_45_BMW_M8RewardRecycled_2020Window_"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.42
+      },
+      {
+        "nodeNames": [
+          "BodyShell_Object_2_BMW_M8RewardRecycled_2020BadgeB_M",
+          "BodyShell_Object_3_BMW_M8RewardRecycled_2020LicenseP",
+          "BodyShell_Object_4_BMW_M8RewardRecycled_2020LightA_M",
+          "BodyShell_Object_5_BMW_M8RewardRecycled_2020Base_Mat",
+          "BodyShell_Object_8_BMW_M8RewardRecycled_2020Grille3A",
+          "BodyShell_Object_9_BMW_M8RewardRecycled_2020Grille4A",
+          "BodyShell_Object_10_BMW_M8RewardRecycled_2020Grille5",
+          "BodyShell_Object_11_BMW_M8RewardRecycled_2020Grille6",
+          "BodyShell_Object_15_redlight_0",
+          "BodyShell_Object_16_whitelight_0",
+          "BodyShell_Object_18_BMW_M8RewardRecycled_2020Base_Ma",
+          "BodyShell_Object_19_BMW_M8RewardRecycled_2020Carbon1",
+          "BodyShell_Object_20_BMW_M8RewardRecycled_2020Carbon1",
+          "BodyShell_Object_21_BMW_M8RewardRecycled_2020Carbon1",
+          "BodyShell_Object_22_BMW_M8RewardRecycled_2020Carbon1",
+          "BodyShell_Object_23_BMW_M8RewardRecycled_2020Carbon1",
+          "BodyShell_Object_26_BMW_M8RewardRecycled_2020Coloure",
+          "BodyShell_Object_27_BMW_M8RewardRecycled_2020Coloure",
+          "BodyShell_Object_28_BMW_M8RewardRecycled_2020Coloure",
+          "BodyShell_Object_29_BMW_M8RewardRecycled_2020Coloure",
+          "BodyShell_Object_30_BMW_M8RewardRecycled_2020Coloure",
+          "BodyShell_Object_33_BMW_M8RewardRecycled_2020EngineA",
+          "BodyShell_Object_35_BMW_M8RewardRecycled_2020Grille2",
+          "BodyShell_Object_39_BMW_M8RewardRecycled_2020Paint_M",
+          "BodyShell_Object_40_BMW_M8RewardRecycled_2020Paint_M",
+          "BodyShell_Object_41_BMW_M8RewardRecycled_2020Paint_M",
+          "BodyShell_Object_42_BMW_M8RewardRecycled_2020Paint_M",
+          "BodyShell_Object_44_BMW_M8RewardRecycled_2020Paint_M",
+          "BodyShell_Object_46_badge_001_0",
+          "BodyShell_Object_47_col2_0",
+          "BodyShell_Object_48_rim_001_0",
+          "BodyShell_Object_48_rim_001_0_2",
+          "BodyShell_Object_49_rim_001_0",
+          "BodyShell_Object_50_rim_001_0",
+          "BodyShell_Object_50_rim_001_0_2",
+          "BodyShell_Object_51_rim_001_0",
+          "BodyShell_Object_52_rim_001_0",
+          "BodyShell_Object_52_rim_001_0_2",
+          "BodyShell_Object_53_rim_001_0",
+          "BodyShell_Object_54_rim_001_0",
+          "BodyShell_Object_54_rim_001_0_2",
+          "BodyShell_Object_55_rim_001_0",
+          "BodyShell_Object_56_rotor_0",
+          "BodyShell_Object_57_tire_001_0",
+          "BodyShell_Object_40_001_BMW_M8RewardRecycled_2020Pai",
+          "BodyShell_Object_40_002_BMW_M8RewardRecycled_2020Pai"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      }
+    ],
+    "credits": {
+      "author": "rohaanwaqas05 (https://sketchfab.com/rohaanwaqas05)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/free-hyper-realistic-model-of-bmw-m8-competition-12dd4e73b65245e0b755343d33df6360"
+    }
+  },
+  {
+    "id": "alpine-a390",
+    "name": "Alpine A390",
+    "bodyType": "All-Electric Crossover",
+    "powertrain": "ev",
+    "style": "realistic",
+    "quality": "full",
+    "modelFile": "/models/alpine-a390.glb",
+    "thumbnail": "/thumbnails/ev.svg",
+    "defaultCamera": {
+      "position": [
+        3.9,
+        1.9,
+        4.3
+      ],
+      "target": [
+        0,
+        0.56,
+        0
+      ],
+      "mobilePosition": [
+        7.8,
+        3.1,
+        8.6
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
+    },
+    "systems": {
+      "engine": {
+        "anchorNode": "Anchor_engine",
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.55,
+          0.96,
+          1.45
+        ],
+        "meshNames": []
+      },
+      "transmission": {
+        "anchorNode": "Anchor_transmission",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.85,
+          0.88,
+          0.5
+        ],
+        "meshNames": []
+      },
+      "brakes": {
+        "anchorNode": "Anchor_brakes",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.35,
+          0.45,
+          0.78
+        ],
+        "meshNames": []
+      },
+      "suspension": {
+        "anchorNode": "Anchor_suspension",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.45,
+          0.58,
+          -0.82
+        ],
+        "meshNames": []
+      },
+      "steering": {
+        "anchorNode": "Anchor_steering",
+        "cameraTarget": [
+          0,
+          -0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.18,
+          1.08,
+          0.9
+        ],
+        "meshNames": []
+      },
+      "electrical": {
+        "anchorNode": "Anchor_electrical",
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          -1.45,
+          0.94,
+          1.3
+        ],
+        "meshNames": []
+      },
+      "cooling": {
+        "anchorNode": "Anchor_cooling",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.92,
+          0.62,
+          1.72
+        ],
+        "meshNames": []
+      }
+    },
+    "nodeMap": {
+      "shell": [
+        "BodyShell_Object_38",
+        "BodyShell_Object_39",
+        "BodyShell_Object_40",
+        "BodyShell_Object_41",
+        "BodyShell_Object_42",
+        "BodyShell_Object_43",
+        "BodyShell_Object_44",
+        "BodyShell_Object_45",
+        "BodyShell_Object_56",
+        "BodyShell_Object_57",
+        "BodyShell_Object_65",
+        "BodyShell_Object_67",
+        "BodyShell_Object_68",
+        "BodyShell_Object_69",
+        "BodyShell_Object_70",
+        "BodyShell_Object_71",
+        "BodyShell_Object_72",
+        "BodyShell_Object_73",
+        "BodyShell_Object_86",
+        "BodyShell_Object_87",
+        "BodyShell_Object_88",
+        "BodyShell_Object_89",
+        "BodyShell_Object_90",
+        "BodyShell_Object_91",
+        "BodyShell_Object_92",
+        "BodyShell_Object_93",
+        "BodyShell_Object_94",
+        "BodyShell_Object_95",
+        "BodyShell_Object_96",
+        "BodyShell_Object_97",
+        "BodyShell_Object_98",
+        "BodyShell_Object_99",
+        "BodyShell_Object_100",
+        "BodyShell_Object_101",
+        "BodyShell_Object_102",
+        "BodyShell_Object_103",
+        "BodyShell_Object_104",
+        "BodyShell_Object_105",
+        "BodyShell_Object_106",
+        "BodyShell_Object_107",
+        "BodyShell_Object_108",
+        "BodyShell_Object_109",
+        "BodyShell_Object_110",
+        "BodyShell_Object_111",
+        "BodyShell_Object_112",
+        "BodyShell_Object_113",
+        "BodyShell_Object_114",
+        "BodyShell_Object_115",
+        "BodyShell_Object_116",
+        "BodyShell_Object_117",
+        "BodyShell_Object_118",
+        "BodyShell_Object_119",
+        "BodyShell_Object_120",
+        "BodyShell_Object_121",
+        "BodyShell_Object_122",
+        "BodyShell_Object_123",
+        "BodyShell_Object_124",
+        "BodyShell_Object_125",
+        "BodyShell_Object_126",
+        "BodyShell_Object_127",
+        "BodyShell_Object_128",
+        "BodyShell_Object_129",
+        "BodyShell_Object_130",
+        "BodyShell_Object_131",
+        "BodyShell_Object_132",
+        "BodyShell_Object_133",
+        "BodyShell_Object_134",
+        "BodyShell_Object_135",
+        "BodyShell_Object_136",
+        "BodyShell_Object_137",
+        "BodyShell_Object_138",
+        "BodyShell_Object_139",
+        "BodyShell_Object_140",
+        "BodyShell_Object_141",
+        "BodyShell_Object_142",
+        "BodyShell_Object_143",
+        "BodyShell_Object_144",
+        "BodyShell_Object_145",
+        "BodyShell_Object_146",
+        "BodyShell_Object_147",
+        "BodyShell_Object_148",
+        "BodyShell_Object_149",
+        "BodyShell_Object_150",
+        "BodyShell_Object_151",
+        "BodyShell_Object_152",
+        "BodyShell_Object_153",
+        "BodyShell_Object_154",
+        "BodyShell_Object_155",
+        "BodyShell_Object_156",
+        "BodyShell_Object_157",
+        "BodyShell_Object_158",
+        "BodyShell_Object_159",
+        "BodyShell_Object_166",
+        "BodyShell_Object_167",
+        "BodyShell_Object_168",
+        "BodyShell_Object_169",
+        "BodyShell_Object_170",
+        "BodyShell_Object_171",
+        "BodyShell_Object_172",
+        "BodyShell_Object_173",
+        "BodyShell_Object_174",
+        "BodyShell_Object_175",
+        "BodyShell_Object_176",
+        "BodyShell_Object_177",
+        "BodyShell_Object_178",
+        "BodyShell_Object_179",
+        "BodyShell_Object_180",
+        "BodyShell_Object_181",
+        "BodyShell_Object_190",
+        "BodyShell_Object_197",
+        "BodyShell_Object_198",
+        "BodyShell_Object_200",
+        "BodyShell_Object_201",
+        "BodyShell_Object_202",
+        "BodyShell_Object_203",
+        "BodyShell_Object_204",
+        "BodyShell_Object_206",
+        "BodyShell_Object_207",
+        "BodyShell_Object_212",
+        "BodyShell_Object_213",
+        "BodyShell_Object_214",
+        "BodyShell_Object_215",
+        "BodyShell_Object_216",
+        "BodyShell_Object_217",
+        "BodyShell_Object_220",
+        "BodyShell_Object_223",
+        "BodyShell_Object_224",
+        "BodyShell_Object_225",
+        "BodyShell_Object_226",
+        "BodyShell_Object_227",
+        "BodyShell_Object_228",
+        "BodyShell_Object_229",
+        "BodyShell_Object_232",
+        "BodyShell_Object_235",
+        "BodyShell_Object_236",
+        "BodyShell_Object_237",
+        "BodyShell_Object_238",
+        "BodyShell_Object_239",
+        "BodyShell_Object_240",
+        "BodyShell_Object_241",
+        "BodyShell_Object_242",
+        "BodyShell_Object_243",
+        "BodyShell_Object_244",
+        "BodyShell_Object_245",
+        "BodyShell_Object_246",
+        "BodyShell_Object_247",
+        "BodyShell_Object_248",
+        "BodyShell_Object_249",
+        "BodyShell_Object_250",
+        "BodyShell_Object_251",
+        "BodyShell_Object_252",
+        "BodyShell_Object_253",
+        "BodyShell_Object_254",
+        "BodyShell_Object_255",
+        "BodyShell_Object_256",
+        "BodyShell_Object_257",
+        "BodyShell_Object_258",
+        "BodyShell_Object_259",
+        "BodyShell_Object_261",
+        "BodyShell_Object_274"
+      ],
+      "glass": [
+        "Glass_Object_82",
+        "Glass_Object_83",
+        "Glass_Object_84",
+        "Glass_Object_85",
+        "Glass_Object_160",
+        "Glass_Object_161",
+        "Glass_Object_162",
+        "Glass_Object_163",
+        "Glass_Object_164",
+        "Glass_Object_165"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorL_Object_205",
+        "BodyDoorL_Object_208",
+        "BodyDoorR_Object_210",
+        "BodyDoorR_Object_211",
+        "BodyDoorL_Object_218",
+        "BodyDoorR_Object_219",
+        "BodyDoorR_Object_221",
+        "BodyDoorL_Object_222"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.75
+        ],
+        "distance": 0.6
+      },
+      {
+        "nodeNames": [
+          "BodyDoorL_Object_205",
+          "BodyDoorL_Object_208",
+          "BodyDoorL_Object_218",
+          "BodyDoorL_Object_222"
+        ],
+        "direction": [
+          1,
+          0.14,
+          0
+        ],
+        "distance": 0.55
+      },
+      {
+        "nodeNames": [
+          "BodyDoorR_Object_210",
+          "BodyDoorR_Object_211",
+          "BodyDoorR_Object_219",
+          "BodyDoorR_Object_221"
+        ],
+        "direction": [
+          -1,
+          0.14,
+          0
+        ],
+        "distance": 0.55
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "Glass_Object_82",
+          "Glass_Object_83",
+          "Glass_Object_84",
+          "Glass_Object_85",
+          "Glass_Object_160",
+          "Glass_Object_161",
+          "Glass_Object_162",
+          "Glass_Object_163",
+          "Glass_Object_164",
+          "Glass_Object_165"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.42
+      },
+      {
+        "nodeNames": [
+          "BodyShell_Object_38",
+          "BodyShell_Object_39",
+          "BodyShell_Object_40",
+          "BodyShell_Object_41",
+          "BodyShell_Object_42",
+          "BodyShell_Object_43",
+          "BodyShell_Object_44",
+          "BodyShell_Object_45",
+          "BodyShell_Object_56",
+          "BodyShell_Object_57",
+          "BodyShell_Object_65",
+          "BodyShell_Object_67",
+          "BodyShell_Object_68",
+          "BodyShell_Object_69",
+          "BodyShell_Object_70",
+          "BodyShell_Object_71",
+          "BodyShell_Object_72",
+          "BodyShell_Object_73",
+          "BodyShell_Object_86",
+          "BodyShell_Object_87",
+          "BodyShell_Object_88",
+          "BodyShell_Object_89",
+          "BodyShell_Object_90",
+          "BodyShell_Object_91",
+          "BodyShell_Object_92",
+          "BodyShell_Object_93",
+          "BodyShell_Object_94",
+          "BodyShell_Object_95",
+          "BodyShell_Object_96",
+          "BodyShell_Object_97",
+          "BodyShell_Object_98",
+          "BodyShell_Object_99",
+          "BodyShell_Object_100",
+          "BodyShell_Object_101",
+          "BodyShell_Object_102",
+          "BodyShell_Object_103",
+          "BodyShell_Object_104",
+          "BodyShell_Object_105",
+          "BodyShell_Object_106",
+          "BodyShell_Object_107",
+          "BodyShell_Object_108",
+          "BodyShell_Object_109",
+          "BodyShell_Object_110",
+          "BodyShell_Object_111",
+          "BodyShell_Object_112",
+          "BodyShell_Object_113",
+          "BodyShell_Object_114",
+          "BodyShell_Object_115",
+          "BodyShell_Object_116",
+          "BodyShell_Object_117",
+          "BodyShell_Object_118",
+          "BodyShell_Object_119",
+          "BodyShell_Object_120",
+          "BodyShell_Object_121",
+          "BodyShell_Object_122",
+          "BodyShell_Object_123",
+          "BodyShell_Object_124",
+          "BodyShell_Object_125",
+          "BodyShell_Object_126",
+          "BodyShell_Object_127",
+          "BodyShell_Object_128",
+          "BodyShell_Object_129",
+          "BodyShell_Object_130",
+          "BodyShell_Object_131",
+          "BodyShell_Object_132",
+          "BodyShell_Object_133",
+          "BodyShell_Object_134",
+          "BodyShell_Object_135",
+          "BodyShell_Object_136",
+          "BodyShell_Object_137",
+          "BodyShell_Object_138",
+          "BodyShell_Object_139",
+          "BodyShell_Object_140",
+          "BodyShell_Object_141",
+          "BodyShell_Object_142",
+          "BodyShell_Object_143",
+          "BodyShell_Object_144",
+          "BodyShell_Object_145",
+          "BodyShell_Object_146",
+          "BodyShell_Object_147",
+          "BodyShell_Object_148",
+          "BodyShell_Object_149",
+          "BodyShell_Object_150",
+          "BodyShell_Object_151",
+          "BodyShell_Object_152",
+          "BodyShell_Object_153",
+          "BodyShell_Object_154",
+          "BodyShell_Object_155",
+          "BodyShell_Object_156",
+          "BodyShell_Object_157",
+          "BodyShell_Object_158",
+          "BodyShell_Object_159",
+          "BodyShell_Object_166",
+          "BodyShell_Object_167",
+          "BodyShell_Object_168",
+          "BodyShell_Object_169",
+          "BodyShell_Object_170",
+          "BodyShell_Object_171",
+          "BodyShell_Object_172",
+          "BodyShell_Object_173",
+          "BodyShell_Object_174",
+          "BodyShell_Object_175",
+          "BodyShell_Object_176",
+          "BodyShell_Object_177",
+          "BodyShell_Object_178",
+          "BodyShell_Object_179",
+          "BodyShell_Object_180",
+          "BodyShell_Object_181",
+          "BodyShell_Object_190",
+          "BodyShell_Object_197",
+          "BodyShell_Object_198",
+          "BodyShell_Object_200",
+          "BodyShell_Object_201",
+          "BodyShell_Object_202",
+          "BodyShell_Object_203",
+          "BodyShell_Object_204",
+          "BodyShell_Object_206",
+          "BodyShell_Object_207",
+          "BodyShell_Object_212",
+          "BodyShell_Object_213",
+          "BodyShell_Object_214",
+          "BodyShell_Object_215",
+          "BodyShell_Object_216",
+          "BodyShell_Object_217",
+          "BodyShell_Object_220",
+          "BodyShell_Object_223",
+          "BodyShell_Object_224",
+          "BodyShell_Object_225",
+          "BodyShell_Object_226",
+          "BodyShell_Object_227",
+          "BodyShell_Object_228",
+          "BodyShell_Object_229",
+          "BodyShell_Object_232",
+          "BodyShell_Object_235",
+          "BodyShell_Object_236",
+          "BodyShell_Object_237",
+          "BodyShell_Object_238",
+          "BodyShell_Object_239",
+          "BodyShell_Object_240",
+          "BodyShell_Object_241",
+          "BodyShell_Object_242",
+          "BodyShell_Object_243",
+          "BodyShell_Object_244",
+          "BodyShell_Object_245",
+          "BodyShell_Object_246",
+          "BodyShell_Object_247",
+          "BodyShell_Object_248",
+          "BodyShell_Object_249",
+          "BodyShell_Object_250",
+          "BodyShell_Object_251",
+          "BodyShell_Object_252",
+          "BodyShell_Object_253",
+          "BodyShell_Object_254",
+          "BodyShell_Object_255",
+          "BodyShell_Object_256",
+          "BodyShell_Object_257",
+          "BodyShell_Object_258",
+          "BodyShell_Object_259",
+          "BodyShell_Object_261",
+          "BodyShell_Object_274"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      }
+    ],
+    "credits": {
+      "author": "GARAGISTA (https://sketchfab.com/-garagista1753d1)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/alpine-a390-98fbad54b9984a078dc9b21f64746a9e"
+    }
+  },
+  {
+    "id": "compact-hatch",
+    "name": "Compact Hatchback",
+    "bodyType": "5-Door Hatch",
+    "powertrain": "petrol",
+    "style": "realistic",
+    "quality": "outline-only",
+    "modelFile": "/models/Hatchback.glb",
+    "thumbnail": "/thumbnails/hatchback.svg",
+    "defaultCamera": {
+      "position": [
+        3.85,
+        1.9,
+        4.25
+      ],
+      "target": [
+        0,
+        0.56,
+        0
+      ],
+      "mobilePosition": [
+        7.6,
+        3.05,
+        8.5
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
+    },
+    "systems": {
+      "engine": {
+        "anchorNode": "Anchor_engine",
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          1.52,
+          0.96,
+          1.42
+        ],
+        "meshNames": []
+      },
+      "transmission": {
+        "anchorNode": "Anchor_transmission",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.82,
+          0.86,
+          0.48
+        ],
+        "meshNames": []
+      },
+      "brakes": {
+        "anchorNode": "Anchor_brakes",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.34,
+          0.46,
+          0.8
+        ],
         "meshNames": [
           "WheelFrontLBrakeDisc",
           "WheelFrontLBrakePad",
@@ -129,35 +1343,591 @@
       },
       "suspension": {
         "anchorNode": "Anchor_suspension",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.45, 0.58, -0.82],
-        "meshNames": ["FrontAxle", "RearAxle"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.42,
+          0.56,
+          -0.8
+        ],
+        "meshNames": [
+          "FrontAxle",
+          "RearAxle"
+        ]
       },
       "steering": {
         "anchorNode": "Anchor_steering",
-        "cameraTarget": [0, -0.02, 0],
-        "cameraOffset": [1.22, 1.12, 0.92],
-        "meshNames": ["InteriorSteeringWheel01"]
+        "cameraTarget": [
+          0,
+          -0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.2,
+          1.1,
+          0.9
+        ],
+        "meshNames": [
+          "InteriorSteeringWheel01"
+        ]
       },
       "electrical": {
         "anchorNode": "Anchor_electrical",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [-1.45, 0.96, 1.3],
-        "meshNames": ["BodyHeadlightL", "BodyHeadlightR"]
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          -1.42,
+          0.94,
+          1.28
+        ],
+        "meshNames": [
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ]
       },
       "cooling": {
         "anchorNode": "Anchor_cooling",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [0.95, 0.65, 1.75],
-        "meshNames": ["BodyFrontGrille"]
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.92,
+          0.64,
+          1.72
+        ],
+        "meshNames": [
+          "BodyFrontGrille"
+        ]
       },
       "exhaust": {
         "anchorNode": "Anchor_exhaust",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [1.5, 0.58, -1.45],
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.48,
+          0.56,
+          -1.42
+        ],
         "meshNames": []
       }
     },
+    "nodeMap": {
+      "shell": [
+        "BodyPanels",
+        "BodyRearPanels",
+        "BodyRoofPanel",
+        "BodyFrontBumper",
+        "BodyRearBumper",
+        "BodyHeadlightL",
+        "BodyHeadlightR",
+        "BodyTaillightL",
+        "BodyTaillightR",
+        "BodyFrontGrille"
+      ],
+      "glass": [
+        "BodyWindshield"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLMirror",
+        "BodyDoorRMirror"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.72
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.46
+      },
+      {
+        "nodeNames": [
+          "BodyPanels"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      },
+      {
+        "nodeNames": [
+          "BodyFrontBumper",
+          "BodyFrontGrille",
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ],
+        "direction": [
+          0,
+          0.1,
+          1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanels",
+          "BodyRearBumper",
+          "BodyTaillightL",
+          "BodyTaillightR"
+        ],
+        "direction": [
+          0,
+          0.22,
+          -1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLMirror"
+        ],
+        "direction": [
+          1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRMirror"
+        ],
+        "direction": [
+          -1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      }
+    ],
+    "credits": {
+      "author": "HowCarsWork Technical Outline (placeholder — drop a real .glb via import-car)",
+      "license": "CC0-1.0",
+      "source": "scripts/build-car-models.mjs"
+    }
+  },
+  {
+    "id": "sedan",
+    "name": "Sedan (Stylized)",
+    "bodyType": "4-Door Sedan",
+    "powertrain": "petrol",
+    "style": "stylized",
+    "quality": "full",
+    "modelFile": "/models/Sedan.glb",
+    "thumbnail": "/thumbnails/sedan.svg",
+    "defaultCamera": {
+      "position": [
+        3.95,
+        1.95,
+        4.35
+      ],
+      "target": [
+        0,
+        0.58,
+        0
+      ],
+      "mobilePosition": [
+        7.8,
+        3.1,
+        8.7
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
+    },
+    "systems": {
+      "engine": {
+        "anchorNode": "Anchor_engine",
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          1.55,
+          0.98,
+          1.45
+        ],
+        "meshNames": []
+      },
+      "transmission": {
+        "anchorNode": "Anchor_transmission",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.85,
+          0.88,
+          0.5
+        ],
+        "meshNames": []
+      },
+      "brakes": {
+        "anchorNode": "Anchor_brakes",
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.38,
+          0.48,
+          0.82
+        ],
+        "meshNames": [
+          "WheelFrontLBrakeDisc",
+          "WheelFrontLBrakePad",
+          "WheelFrontRBrakeDisc",
+          "WheelFrontRBrakePad",
+          "WheelRearLBrakeDisc",
+          "WheelRearLBrakePad",
+          "WheelRearRBrakeDisc",
+          "WheelRearRBrakePad"
+        ]
+      },
+      "suspension": {
+        "anchorNode": "Anchor_suspension",
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.45,
+          0.58,
+          -0.82
+        ],
+        "meshNames": [
+          "FrontAxle",
+          "RearAxle"
+        ]
+      },
+      "steering": {
+        "anchorNode": "Anchor_steering",
+        "cameraTarget": [
+          0,
+          -0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.22,
+          1.12,
+          0.92
+        ],
+        "meshNames": [
+          "InteriorSteeringWheel01"
+        ]
+      },
+      "electrical": {
+        "anchorNode": "Anchor_electrical",
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          -1.45,
+          0.96,
+          1.3
+        ],
+        "meshNames": [
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ]
+      },
+      "cooling": {
+        "anchorNode": "Anchor_cooling",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.95,
+          0.65,
+          1.75
+        ],
+        "meshNames": [
+          "BodyFrontGrille"
+        ]
+      },
+      "exhaust": {
+        "anchorNode": "Anchor_exhaust",
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.5,
+          0.58,
+          -1.45
+        ],
+        "meshNames": []
+      }
+    },
+    "nodeMap": {
+      "shell": [
+        "BodyPanels",
+        "BodyRearPanels",
+        "BodyRoofPanel",
+        "BodyFrontBumper",
+        "BodyRearBumper",
+        "BodyHeadlightL",
+        "BodyHeadlightR",
+        "BodyTaillightL",
+        "BodyTaillightR",
+        "BodyFrontGrille"
+      ],
+      "glass": [
+        "BodyWindshield"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLMirror",
+        "BodyDoorRMirror"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.72
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.46
+      },
+      {
+        "nodeNames": [
+          "BodyPanels"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      },
+      {
+        "nodeNames": [
+          "BodyFrontBumper",
+          "BodyFrontGrille",
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ],
+        "direction": [
+          0,
+          0.1,
+          1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanels",
+          "BodyRearBumper",
+          "BodyTaillightL",
+          "BodyTaillightR"
+        ],
+        "direction": [
+          0,
+          0.22,
+          -1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLMirror"
+        ],
+        "direction": [
+          1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRMirror"
+        ],
+        "direction": [
+          -1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      }
+    ],
     "credits": {
       "author": "HowCarsWork Procedural Studio",
       "license": "CC0-1.0",
@@ -166,34 +1936,76 @@
   },
   {
     "id": "suv",
-    "name": "SUV",
+    "name": "SUV (Stylized)",
     "bodyType": "Midsize SUV",
     "powertrain": "diesel",
+    "style": "stylized",
+    "quality": "full",
     "modelFile": "/models/SUV.glb",
     "thumbnail": "/thumbnails/suv.svg",
     "defaultCamera": {
-      "position": [4.15, 2.05, 4.45],
-      "target": [0, 0.72, 0],
-      "mobilePosition": [8.1, 3.25, 8.9],
-      "mobileTarget": [0, -0.1, 0]
+      "position": [
+        4.15,
+        2.05,
+        4.45
+      ],
+      "target": [
+        0,
+        0.72,
+        0
+      ],
+      "mobilePosition": [
+        8.1,
+        3.25,
+        8.9
+      ],
+      "mobileTarget": [
+        0,
+        -0.1,
+        0
+      ]
     },
     "systems": {
       "engine": {
         "anchorNode": "Anchor_engine",
-        "cameraTarget": [0, 0.06, 0],
-        "cameraOffset": [1.62, 1.04, 1.5],
-        "meshNames": ["BodyHood"]
+        "cameraTarget": [
+          0,
+          0.06,
+          0
+        ],
+        "cameraOffset": [
+          1.62,
+          1.04,
+          1.5
+        ],
+        "meshNames": []
       },
       "transmission": {
         "anchorNode": "Anchor_transmission",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.9, 0.92, 0.52],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.9,
+          0.92,
+          0.52
+        ],
         "meshNames": []
       },
       "brakes": {
         "anchorNode": "Anchor_brakes",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.42, 0.5, 0.86],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.42,
+          0.5,
+          0.86
+        ],
         "meshNames": [
           "WheelFrontLBrakeDisc",
           "WheelFrontLBrakePad",
@@ -207,35 +2019,257 @@
       },
       "suspension": {
         "anchorNode": "Anchor_suspension",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [1.5, 0.64, -0.86],
-        "meshNames": ["FrontAxle", "RearAxle"]
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          1.5,
+          0.64,
+          -0.86
+        ],
+        "meshNames": [
+          "FrontAxle",
+          "RearAxle"
+        ]
       },
       "steering": {
         "anchorNode": "Anchor_steering",
-        "cameraTarget": [0, -0.02, 0],
-        "cameraOffset": [1.26, 1.18, 0.94],
-        "meshNames": ["InteriorSteeringWheel01"]
+        "cameraTarget": [
+          0,
+          -0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.26,
+          1.18,
+          0.94
+        ],
+        "meshNames": [
+          "InteriorSteeringWheel01"
+        ]
       },
       "electrical": {
         "anchorNode": "Anchor_electrical",
-        "cameraTarget": [0, 0.06, 0],
-        "cameraOffset": [-1.5, 1.0, 1.32],
-        "meshNames": ["BodyHeadlightL", "BodyHeadlightR"]
+        "cameraTarget": [
+          0,
+          0.06,
+          0
+        ],
+        "cameraOffset": [
+          -1.5,
+          1,
+          1.32
+        ],
+        "meshNames": [
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ]
       },
       "cooling": {
         "anchorNode": "Anchor_cooling",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.0, 0.68, 1.8],
-        "meshNames": ["BodyFrontGrille"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1,
+          0.68,
+          1.8
+        ],
+        "meshNames": [
+          "BodyFrontGrille"
+        ]
       },
       "exhaust": {
         "anchorNode": "Anchor_exhaust",
-        "cameraTarget": [0, 0.03, 0],
-        "cameraOffset": [1.56, 0.62, -1.5],
+        "cameraTarget": [
+          0,
+          0.03,
+          0
+        ],
+        "cameraOffset": [
+          1.56,
+          0.62,
+          -1.5
+        ],
         "meshNames": []
       }
     },
+    "nodeMap": {
+      "shell": [
+        "BodyPanels",
+        "BodyRearPanels",
+        "BodyRoofPanel",
+        "BodyRoofRailL",
+        "BodyRoofRailR",
+        "BodyFrontBumper",
+        "BodyRearBumper",
+        "BodyHeadlightL",
+        "BodyHeadlightR",
+        "BodyTaillightL",
+        "BodyTaillightR",
+        "BodyFrontGrille"
+      ],
+      "glass": [
+        "BodyWindshield"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLMirror",
+        "BodyDoorRMirror"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.72
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel",
+          "BodyRoofRailL",
+          "BodyRoofRailR"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.46
+      },
+      {
+        "nodeNames": [
+          "BodyPanels"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      },
+      {
+        "nodeNames": [
+          "BodyFrontBumper",
+          "BodyFrontGrille",
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ],
+        "direction": [
+          0,
+          0.1,
+          1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanels",
+          "BodyRearBumper",
+          "BodyTaillightL",
+          "BodyTaillightR"
+        ],
+        "direction": [
+          0,
+          0.22,
+          -1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLMirror"
+        ],
+        "direction": [
+          1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRMirror"
+        ],
+        "direction": [
+          -1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      }
+    ],
     "credits": {
       "author": "HowCarsWork Procedural Studio",
       "license": "CC0-1.0",
@@ -244,34 +2278,76 @@
   },
   {
     "id": "hatchback",
-    "name": "Hatchback",
+    "name": "Hatchback (Stylized)",
     "bodyType": "5-Door Hatch",
     "powertrain": "petrol",
+    "style": "stylized",
+    "quality": "full",
     "modelFile": "/models/Hatchback.glb",
     "thumbnail": "/thumbnails/hatchback.svg",
     "defaultCamera": {
-      "position": [3.85, 1.9, 4.25],
-      "target": [0, 0.56, 0],
-      "mobilePosition": [7.6, 3.05, 8.5],
-      "mobileTarget": [0, -0.16, 0]
+      "position": [
+        3.85,
+        1.9,
+        4.25
+      ],
+      "target": [
+        0,
+        0.56,
+        0
+      ],
+      "mobilePosition": [
+        7.6,
+        3.05,
+        8.5
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
     },
     "systems": {
       "engine": {
         "anchorNode": "Anchor_engine",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [1.52, 0.96, 1.42],
-        "meshNames": ["BodyHood"]
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          1.52,
+          0.96,
+          1.42
+        ],
+        "meshNames": []
       },
       "transmission": {
         "anchorNode": "Anchor_transmission",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.82, 0.86, 0.48],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.82,
+          0.86,
+          0.48
+        ],
         "meshNames": []
       },
       "brakes": {
         "anchorNode": "Anchor_brakes",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.34, 0.46, 0.8],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.34,
+          0.46,
+          0.8
+        ],
         "meshNames": [
           "WheelFrontLBrakeDisc",
           "WheelFrontLBrakePad",
@@ -285,35 +2361,253 @@
       },
       "suspension": {
         "anchorNode": "Anchor_suspension",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.42, 0.56, -0.8],
-        "meshNames": ["FrontAxle", "RearAxle"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.42,
+          0.56,
+          -0.8
+        ],
+        "meshNames": [
+          "FrontAxle",
+          "RearAxle"
+        ]
       },
       "steering": {
         "anchorNode": "Anchor_steering",
-        "cameraTarget": [0, -0.02, 0],
-        "cameraOffset": [1.2, 1.1, 0.9],
-        "meshNames": ["InteriorSteeringWheel01"]
+        "cameraTarget": [
+          0,
+          -0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.2,
+          1.1,
+          0.9
+        ],
+        "meshNames": [
+          "InteriorSteeringWheel01"
+        ]
       },
       "electrical": {
         "anchorNode": "Anchor_electrical",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [-1.42, 0.94, 1.28],
-        "meshNames": ["BodyHeadlightL", "BodyHeadlightR"]
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          -1.42,
+          0.94,
+          1.28
+        ],
+        "meshNames": [
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ]
       },
       "cooling": {
         "anchorNode": "Anchor_cooling",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [0.92, 0.64, 1.72],
-        "meshNames": ["BodyFrontGrille"]
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.92,
+          0.64,
+          1.72
+        ],
+        "meshNames": [
+          "BodyFrontGrille"
+        ]
       },
       "exhaust": {
         "anchorNode": "Anchor_exhaust",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [1.48, 0.56, -1.42],
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.48,
+          0.56,
+          -1.42
+        ],
         "meshNames": []
       }
     },
+    "nodeMap": {
+      "shell": [
+        "BodyPanels",
+        "BodyRearPanels",
+        "BodyRoofPanel",
+        "BodyFrontBumper",
+        "BodyRearBumper",
+        "BodyHeadlightL",
+        "BodyHeadlightR",
+        "BodyTaillightL",
+        "BodyTaillightR",
+        "BodyFrontGrille"
+      ],
+      "glass": [
+        "BodyWindshield"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLMirror",
+        "BodyDoorRMirror"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.72
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.46
+      },
+      {
+        "nodeNames": [
+          "BodyPanels"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      },
+      {
+        "nodeNames": [
+          "BodyFrontBumper",
+          "BodyFrontGrille",
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ],
+        "direction": [
+          0,
+          0.1,
+          1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanels",
+          "BodyRearBumper",
+          "BodyTaillightL",
+          "BodyTaillightR"
+        ],
+        "direction": [
+          0,
+          0.22,
+          -1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLMirror"
+        ],
+        "direction": [
+          1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRMirror"
+        ],
+        "direction": [
+          -1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      }
+    ],
     "credits": {
       "author": "HowCarsWork Procedural Studio",
       "license": "CC0-1.0",
@@ -322,34 +2616,78 @@
   },
   {
     "id": "ev",
-    "name": "Electric Car",
+    "name": "Electric Car (Stylized)",
     "bodyType": "All-Electric Fastback",
     "powertrain": "ev",
+    "style": "stylized",
+    "quality": "full",
     "modelFile": "/models/EV.glb",
     "thumbnail": "/thumbnails/ev.svg",
     "defaultCamera": {
-      "position": [3.95, 1.92, 4.35],
-      "target": [0, 0.56, 0],
-      "mobilePosition": [7.8, 3.05, 8.7],
-      "mobileTarget": [0, -0.16, 0]
+      "position": [
+        3.95,
+        1.92,
+        4.35
+      ],
+      "target": [
+        0,
+        0.56,
+        0
+      ],
+      "mobilePosition": [
+        7.8,
+        3.05,
+        8.7
+      ],
+      "mobileTarget": [
+        0,
+        -0.16,
+        0
+      ]
     },
     "systems": {
       "engine": {
         "anchorNode": "Anchor_engine",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.55, 0.94, 1.45],
-        "meshNames": ["EVDriveUnit"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.55,
+          0.94,
+          1.45
+        ],
+        "meshNames": [
+          "EVDriveUnit"
+        ]
       },
       "transmission": {
         "anchorNode": "Anchor_transmission",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.82, 0.86, 0.5],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.82,
+          0.86,
+          0.5
+        ],
         "meshNames": []
       },
       "brakes": {
         "anchorNode": "Anchor_brakes",
-        "cameraTarget": [0, 0, 0],
-        "cameraOffset": [1.38, 0.48, 0.82],
+        "cameraTarget": [
+          0,
+          0,
+          0
+        ],
+        "cameraOffset": [
+          1.38,
+          0.48,
+          0.82
+        ],
         "meshNames": [
           "WheelFrontLBrakeDisc",
           "WheelFrontLBrakePad",
@@ -363,29 +2701,238 @@
       },
       "suspension": {
         "anchorNode": "Anchor_suspension",
-        "cameraTarget": [0, 0.04, 0],
-        "cameraOffset": [1.45, 0.58, -0.82],
-        "meshNames": ["FrontAxle", "RearAxle"]
+        "cameraTarget": [
+          0,
+          0.04,
+          0
+        ],
+        "cameraOffset": [
+          1.45,
+          0.58,
+          -0.82
+        ],
+        "meshNames": [
+          "FrontAxle",
+          "RearAxle"
+        ]
       },
       "steering": {
         "anchorNode": "Anchor_steering",
-        "cameraTarget": [0, -0.02, 0],
-        "cameraOffset": [1.22, 1.12, 0.92],
-        "meshNames": ["InteriorSteeringWheel01"]
+        "cameraTarget": [
+          0,
+          -0.02,
+          0
+        ],
+        "cameraOffset": [
+          1.22,
+          1.12,
+          0.92
+        ],
+        "meshNames": [
+          "InteriorSteeringWheel01"
+        ]
       },
       "electrical": {
         "anchorNode": "Anchor_electrical",
-        "cameraTarget": [0, 0.05, 0],
-        "cameraOffset": [-1.75, 0.98, 1.1],
-        "meshNames": ["EVBatteryPack"]
+        "cameraTarget": [
+          0,
+          0.05,
+          0
+        ],
+        "cameraOffset": [
+          -1.75,
+          0.98,
+          1.1
+        ],
+        "meshNames": [
+          "EVBatteryPack"
+        ]
       },
       "cooling": {
         "anchorNode": "Anchor_cooling",
-        "cameraTarget": [0, 0.02, 0],
-        "cameraOffset": [0.95, 0.65, 1.75],
-        "meshNames": ["BodyFrontGrille"]
+        "cameraTarget": [
+          0,
+          0.02,
+          0
+        ],
+        "cameraOffset": [
+          0.95,
+          0.65,
+          1.75
+        ],
+        "meshNames": [
+          "BodyFrontGrille"
+        ]
       }
     },
+    "nodeMap": {
+      "shell": [
+        "BodyPanels",
+        "BodyRearPanels",
+        "BodyRoofPanel",
+        "BodyFrontBumper",
+        "BodyRearBumper",
+        "BodyHeadlightL",
+        "BodyHeadlightR",
+        "BodyTaillightL",
+        "BodyTaillightR",
+        "BodyFrontGrille"
+      ],
+      "glass": [
+        "BodyWindshield"
+      ],
+      "wheels": {
+        "fl": "WheelFrontL",
+        "fr": "WheelFrontR",
+        "rl": "WheelRearL",
+        "rr": "WheelRearR"
+      },
+      "hood": "BodyHood",
+      "doors": [
+        "BodyDoorLMirror",
+        "BodyDoorRMirror"
+      ]
+    },
+    "shell": [
+      {
+        "nodeNames": [
+          "BodyHood"
+        ],
+        "direction": [
+          0,
+          0.72,
+          0.72
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRoofPanel"
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.56
+      },
+      {
+        "nodeNames": [
+          "BodyWindshield"
+        ],
+        "direction": [
+          0,
+          0.75,
+          0.45
+        ],
+        "distance": 0.46
+      },
+      {
+        "nodeNames": [
+          "BodyPanels"
+        ],
+        "direction": [
+          0,
+          0.35,
+          0
+        ],
+        "distance": 0.24
+      },
+      {
+        "nodeNames": [
+          "BodyFrontBumper",
+          "BodyFrontGrille",
+          "BodyHeadlightL",
+          "BodyHeadlightR"
+        ],
+        "direction": [
+          0,
+          0.1,
+          1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyRearPanels",
+          "BodyRearBumper",
+          "BodyTaillightL",
+          "BodyTaillightR"
+        ],
+        "direction": [
+          0,
+          0.22,
+          -1
+        ],
+        "distance": 0.62
+      },
+      {
+        "nodeNames": [
+          "BodyDoorLMirror"
+        ],
+        "direction": [
+          1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "BodyDoorRMirror"
+        ],
+        "direction": [
+          -1,
+          0.18,
+          0
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelFrontR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearL"
+        ],
+        "direction": [
+          1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      },
+      {
+        "nodeNames": [
+          "WheelRearR"
+        ],
+        "direction": [
+          -1,
+          0.08,
+          -0.16
+        ],
+        "distance": 0.48
+      }
+    ],
     "credits": {
       "author": "HowCarsWork Procedural Studio",
       "license": "CC0-1.0",
@@ -393,4 +2940,3 @@
     }
   }
 ]
-

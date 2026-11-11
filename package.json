@@ -8,15 +8,22 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "import-car": "node scripts/import-car.mjs"
   },
   "dependencies": {
     "gsap": "^3.15.1",
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "@types/three": "^0.187.0",
+    "draco3dgltf": "^1.5.9",
+    "meshoptimizer": "^1.3.0",
     "playwright-core": "^1.65.0",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }

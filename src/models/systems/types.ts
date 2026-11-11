@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Powertrain } from '../../state/appState';
+import type { ExplodableEntry } from '../ProceduralHelpers';
 
 export interface SystemLabelAnchor {
   partId: string;
@@ -30,6 +31,8 @@ export interface SystemModelInstance {
   partObjects: THREE.Object3D[];
   /** Anchors for 3D-projected part labels */
   labelAnchors: SystemLabelAnchor[];
+  /** Semantic parts map for rig inspection & per-part explode */
+  explodables?: ExplodableEntry[];
   update: (dt: number, sim: SystemSimulationState) => SystemFrameStatus;
   highlightPart: (partId: string | null) => void;
   setExplode: (amount: number) => void;

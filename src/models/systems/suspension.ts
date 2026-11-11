@@ -40,6 +40,7 @@ export function createSystemModel(): SystemModelInstance {
   const roadGeo = new THREE.BoxGeometry(0.16, 0.06, 0.7);
   const roadMesh = new THREE.InstancedMesh(roadGeo, bumpMat, blockCount);
   roadMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  roadMesh.userData.lessonOnly = true;
   assembly.add(roadMesh);
 
   // 1. Wheel Hub + Tire
@@ -160,6 +161,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {

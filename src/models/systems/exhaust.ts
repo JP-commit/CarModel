@@ -177,6 +177,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {

@@ -10,10 +10,13 @@ globalThis.FileReader = class {
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
-const OUT_DIR = '/home/jp/Documents/Car Model/public/models';
+// Writes procedural stylized models only (Sedan.glb, SUV.glb, Hatchback.glb, EV.glb).
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const OUT_DIR = path.resolve(SCRIPT_DIR, '..', 'public', 'models');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 function makeBodyShellGeometry(spec, depth, bevel = 0.04) {

@@ -142,6 +142,7 @@ export function createSystemModel(): SystemModelInstance {
   );
   hoseMat.transparent = true;
   hoseMat.opacity = 0.35;
+  hoseMesh.userData.lessonOnly = true;
   assembly.add(hoseMesh);
 
   const coolantStream = createFlowStream(loopCurve, 18, '#f05a28', 0.028, 0.075);
@@ -185,6 +186,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {

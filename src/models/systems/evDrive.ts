@@ -249,11 +249,11 @@ export function createSystemModel(): SystemModelInstance {
   }
 
   const explodables: ExplodableEntry[] = [
-    { object: statorGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0, -0.68) },
-    { object: rotorGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0, 0.42) },
-    { object: inverterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.62, 0) },
-    { object: gearGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.68, -0.06, 0.22) },
-    { object: batteryGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.66, -0.28, 0) },
+    { object: statorGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0, -0.82) },
+    { object: rotorGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0, 0.58) },
+    { object: inverterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.95, 0) },
+    { object: gearGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.95, -0.05, 0.28) },
+    { object: batteryGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-1.15, -1.0, 0.3) },
   ];
 
   const labelAnchors: SystemLabelAnchor[] = [
@@ -318,6 +318,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       if (sim.playing) {
         const motionFactor = sim.reduceMotion ? 0.35 : 1;

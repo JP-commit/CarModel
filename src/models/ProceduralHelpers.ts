@@ -114,6 +114,7 @@ export function createFlowStream(
   });
   const mesh = new THREE.InstancedMesh(geo, mat, count);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.userData.lessonOnly = true;
 
   const dummy = new THREE.Object3D();
   const pos = new THREE.Vector3();

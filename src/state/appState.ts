@@ -11,6 +11,8 @@ export type SystemId =
 export type ViewMode = 'home' | 'lesson' | 'tour' | 'compare';
 export type RenderMode = 'outline' | 'solid';
 export type Powertrain = 'petrol' | 'diesel' | 'ev';
+export type IsolationMode = 'isolate' | 'ghost' | 'all';
+export type GraphicsQuality = 'high' | 'low';
 
 export interface LayerVisibility {
   outline: boolean;
@@ -31,6 +33,10 @@ export interface AppState {
   selectedCarId: string;
   activePowertrain: Powertrain;
   selectedSystem: SystemId | null;
+  selectedPartId: string | null;
+  isolationMode: IsolationMode;
+  graphicsQuality: GraphicsQuality;
+  paintColor: string;
   activeLesson: SystemId | null;
   homeExplode: number;
   xrayCar: boolean;
@@ -49,7 +55,51 @@ const STORAGE_QUIZ_KEY = 'howcarswork_quiz_progress_v1';
 const STORAGE_MOTION_KEY = 'howcarswork_reduce_motion_v1';
 const STORAGE_HINT_KEY = 'howcarswork_hint_dismissed_v1';
 const STORAGE_RENDER_MODE_KEY = 'howcarswork_render_mode_v1';
+const STORAGE_ISOLATION_KEY = 'howcarswork_isolation_mode_v1';
 const STORAGE_CAR_ID_KEY = 'howcarswork_selected_car_v1';
+const STORAGE_QUALITY_KEY = 'howcarswork_graphics_quality_v1';
+const STORAGE_PAINT_KEY = 'howcarswork_paint_color_v1';
+
+export function detectMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768;
+}
+
+function loadInitialQuality(): GraphicsQuality {
+  try {
+    const saved = localStorage.getItem(STORAGE_QUALITY_KEY);
+    if (saved === 'high' || saved === 'low') {
+      return saved;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return detectMobileDevice() ? 'low' : 'high';
+}
+
+function loadInitialPaintColor(): string {
+  try {
+    const saved = localStorage.getItem(STORAGE_PAINT_KEY);
+    if (saved && (saved === 'original' || /^#[0-9a-f]{6}$/i.test(saved))) {
+      return saved;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return 'original';
+}
+
+function loadInitialIsolationMode(): IsolationMode {
+  try {
+    const saved = localStorage.getItem(STORAGE_ISOLATION_KEY);
+    if (saved === 'isolate' || saved === 'ghost' || saved === 'all') {
+      return saved;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return 'ghost';
+}
 
 function loadInitialRenderMode(): RenderMode {
   try {
@@ -125,6 +175,10 @@ class AppStateStore {
       selectedCarId: loadInitialCarId(),
       activePowertrain: 'petrol',
       selectedSystem: null,
+      selectedPartId: null,
+      isolationMode: loadInitialIsolationMode(),
+      graphicsQuality: loadInitialQuality(),
+      paintColor: loadInitialPaintColor(),
       activeLesson: null,
       homeExplode: 0,
       xrayCar: false,
@@ -170,9 +224,30 @@ class AppStateStore {
         // Ignore storage errors
       }
     }
+    if ('isolationMode' in patch) {
+      try {
+        localStorage.setItem(STORAGE_ISOLATION_KEY, this.state.isolationMode);
+      } catch {
+        // Ignore storage errors
+      }
+    }
     if ('selectedCarId' in patch) {
       try {
         localStorage.setItem(STORAGE_CAR_ID_KEY, this.state.selectedCarId);
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    if ('graphicsQuality' in patch) {
+      try {
+        localStorage.setItem(STORAGE_QUALITY_KEY, this.state.graphicsQuality);
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    if ('paintColor' in patch) {
+      try {
+        localStorage.setItem(STORAGE_PAINT_KEY, this.state.paintColor);
       } catch {
         // Ignore storage errors
       }

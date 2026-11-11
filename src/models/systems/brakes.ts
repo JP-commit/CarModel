@@ -130,11 +130,11 @@ export function createSystemModel(): SystemModelInstance {
   const partCtrl = createPartController(partMap, [fluidStream.mesh.material as THREE.Material, holeMat]);
 
   const explodables: ExplodableEntry[] = [
-    { object: masterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.55, 0.25, 0) },
-    { object: linesGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.35, 0) },
-    { object: caliperGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.15, 0.65, 0) },
-    { object: padsGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.3, 0.2, 0.32) },
-    { object: discGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.45, -0.15, -0.3) },
+    { object: masterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.85, 0.1, 0) },
+    { object: linesGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.35, 0.45, -0.15) },
+    { object: caliperGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.18, 0.85, 0) },
+    { object: padsGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.38, 0.15, 0.48) },
+    { object: discGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.55, -0.25, -0.45) },
   ];
 
   const labelAnchors: SystemLabelAnchor[] = [
@@ -156,6 +156,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {

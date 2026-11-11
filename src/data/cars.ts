@@ -7,11 +7,35 @@ export interface CarSystemManifest {
   meshNames: string[];
 }
 
+export type CarStyle = 'realistic' | 'stylized';
+export type CarQuality = 'full' | 'outline-only';
+
+export interface CarNodeMap {
+  shell: string[];
+  glass: string[];
+  wheels: {
+    fl: string | null;
+    fr: string | null;
+    rl: string | null;
+    rr: string | null;
+  };
+  hood: string | null;
+  doors: string[];
+}
+
+export interface ShellExplodePart {
+  nodeNames: string[];
+  direction: [number, number, number];
+  distance: number;
+}
+
 export interface CarManifestEntry {
   id: string;
   name: string;
   bodyType: string;
   powertrain: Powertrain;
+  style?: CarStyle;
+  quality?: CarQuality;
   modelFile: string;
   thumbnail: string;
   defaultCamera: {
@@ -21,6 +45,8 @@ export interface CarManifestEntry {
     mobileTarget?: [number, number, number];
   };
   systems: Partial<Record<SystemId, CarSystemManifest>>;
+  nodeMap?: CarNodeMap;
+  shell?: ShellExplodePart[];
   credits?: {
     author: string;
     license: string;

@@ -168,7 +168,7 @@
 .hint-toast {
   position: absolute;
   left: 50%;
-  bottom: var(--space-5);
+  bottom: calc(var(--space-5) + 52px);
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -251,7 +251,7 @@
   .header-icons-row {
     order: 4;
     margin-left: auto;
-    gap: 4px;
+    gap: 3px;
   }
 
   .system-rail {
@@ -260,7 +260,7 @@
 
   .hint-toast {
     bottom: auto;
-    top: 4px;
+    top: 44px;
     font-size: 0.72rem;
     padding: 6px 10px 6px 12px;
     max-width: calc(100vw - 24px);

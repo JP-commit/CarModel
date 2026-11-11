@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import type { GraphicsQuality } from '../state/appState';
 
 export type FrameCallback = (dt: number, elapsed: number) => void;
 export type CustomRenderCallback = (renderer: THREE.WebGLRenderer, width: number, height: number) => void;
@@ -52,28 +53,6 @@ export function disposeObject3D(root: THREE.Object3D): void {
   }
 }
 
-function buildLightStudioEnvironment(pmrem: THREE.PMREMGenerator): THREE.WebGLRenderTarget {
-  const roomEnv = new RoomEnvironment();
-  const softboxMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.35, 1.35, 1.32) });
-  const softboxGeo = new THREE.PlaneGeometry(9.0, 2.2);
-
-  const topBox = new THREE.Mesh(softboxGeo, softboxMat);
-  topBox.position.set(0, 6.5, 0.8);
-  topBox.rotation.x = Math.PI / 2;
-  roomEnv.add(topBox);
-
-  const sideBox = new THREE.Mesh(softboxGeo, softboxMat);
-  sideBox.position.set(4.5, 3.2, 2.0);
-  sideBox.lookAt(0, 0.5, 0);
-  roomEnv.add(sideBox);
-
-  const target = pmrem.fromScene(roomEnv, 0.04);
-  softboxGeo.dispose();
-  softboxMat.dispose();
-  roomEnv.dispose();
-  return target;
-}
-
 export class SceneManager {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
@@ -81,7 +60,8 @@ export class SceneManager {
 
   private readonly container: HTMLElement;
   private readonly pmremGenerator: THREE.PMREMGenerator;
-  private readonly envRenderTarget: THREE.WebGLRenderTarget;
+  private envRenderTarget: THREE.WebGLRenderTarget | null = null;
+  private quality: GraphicsQuality = 'high';
   private readonly resizeObserver: ResizeObserver;
   private frameCallback: FrameCallback | null = null;
   private customRenderCallback: CustomRenderCallback | null = null;
@@ -95,8 +75,10 @@ export class SceneManager {
     canvas: HTMLCanvasElement,
     container: HTMLElement,
     onContextLost?: () => void,
+    initialQuality: GraphicsQuality = 'high',
   ) {
     this.container = container;
+    this.quality = initialQuality;
 
     this.scene = new THREE.Scene();
 
@@ -111,19 +93,19 @@ export class SceneManager {
       alpha: true,
       powerPreference: 'high-performance',
     });
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : 1);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.enabled = false;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-    this.envRenderTarget = buildLightStudioEnvironment(this.pmremGenerator);
-    this.scene.environment = this.envRenderTarget.texture;
+    this.pmremGenerator.compileEquirectangularShader();
+    this.loadStudioHdrEnvironment();
 
     canvas.addEventListener('webglcontextlost', (event) => {
       event.preventDefault();
@@ -194,10 +176,43 @@ export class SceneManager {
     }
   }
 
+  setQuality(quality: GraphicsQuality): void {
+    if (this.quality === quality) return;
+    this.quality = quality;
+    this.handleResize();
+  }
+
+  getQuality(): GraphicsQuality {
+    return this.quality;
+  }
+
+  private loadStudioHdrEnvironment(): void {
+    const loader = new HDRLoader();
+    loader.load(
+      '/env/studio_1k.hdr',
+      (hdrTex) => {
+        if (this.disposed) {
+          hdrTex.dispose();
+          return;
+        }
+        hdrTex.mapping = THREE.EquirectangularReflectionMapping;
+        const pmremTarget = this.pmremGenerator.fromEquirectangular(hdrTex);
+        hdrTex.dispose();
+        this.envRenderTarget?.dispose();
+        this.envRenderTarget = pmremTarget;
+        this.scene.environment = pmremTarget.texture;
+      },
+      undefined,
+      (err) => {
+        console.warn('[HowCarsWork] Failed to load 1k HDR environment:', err);
+      },
+    );
+  }
+
   private handleResize(): void {
     const width = Math.max(this.container.clientWidth, 1);
     const height = Math.max(this.container.clientHeight, 1);
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : 1);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(dpr);
@@ -210,7 +225,7 @@ export class SceneManager {
     this.stop();
     this.resizeObserver.disconnect();
     disposeObject3D(this.scene);
-    this.envRenderTarget.dispose();
+    this.envRenderTarget?.dispose();
     this.pmremGenerator.dispose();
     this.renderer.dispose();
   }

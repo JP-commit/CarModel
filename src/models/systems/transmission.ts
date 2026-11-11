@@ -197,12 +197,12 @@ export function createSystemModel(): SystemModelInstance {
   const partCtrl = createPartController(partMap);
 
   const explodables: ExplodableEntry[] = [
-    { object: casingGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.55, -0.75) },
-    { object: clutchGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.75, 0, 0) },
-    { object: inputGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.3, 0.35, 0.25) },
-    { object: counterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, -0.48, 0.2) },
-    { object: syncGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.25, 0.35, 0.25) },
-    { object: diffGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.75, 0, 0) },
+    { object: casingGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, 0.65, -0.95) },
+    { object: clutchGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.98, 0, 0) },
+    { object: inputGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(-0.52, 0.55, 0.3) },
+    { object: counterGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0, -0.68, 0.25) },
+    { object: syncGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.42, 0.55, 0.3) },
+    { object: diffGroup, basePosition: new THREE.Vector3(), explodeOffset: new THREE.Vector3(0.98, 0, 0) },
   ];
 
   const labelAnchors: SystemLabelAnchor[] = [
@@ -226,6 +226,7 @@ export function createSystemModel(): SystemModelInstance {
     },
     partObjects: Object.values(partMap),
     labelAnchors,
+    explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {

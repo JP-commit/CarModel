@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import type { GraphicsQuality, RenderMode } from '../state/appState';
 
 export interface StudioStageHandle {
   group: THREE.Group;
   setShowroomPropsVisible: (visible: boolean) => void;
+  setRenderState: (mode: RenderMode, quality: GraphicsQuality) => void;
 }
 
 function createContactShadowTexture(): THREE.CanvasTexture {
@@ -90,6 +92,16 @@ export function createLightingStage(scene: THREE.Scene): StudioStageHandle {
   const groundLine = new THREE.LineSegments(baselineGeo, baselineMat);
   carPropsGroup.add(groundLine);
 
+  const groundShadowReceiver = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.8, 8.2),
+    new THREE.ShadowMaterial({ opacity: 0.22, depthWrite: false }),
+  );
+  groundShadowReceiver.rotation.x = -Math.PI / 2;
+  groundShadowReceiver.position.y = 0.0015;
+  groundShadowReceiver.receiveShadow = true;
+  groundShadowReceiver.visible = false;
+  carPropsGroup.add(groundShadowReceiver);
+
   group.add(carPropsGroup);
   scene.add(group);
 
@@ -97,6 +109,11 @@ export function createLightingStage(scene: THREE.Scene): StudioStageHandle {
     group,
     setShowroomPropsVisible: (visible: boolean) => {
       carPropsGroup.visible = visible;
+    },
+    setRenderState: (mode: RenderMode, quality: GraphicsQuality) => {
+      const solidShadows = mode === 'solid' && quality === 'high';
+      keyLight.castShadow = solidShadows;
+      groundShadowReceiver.visible = solidShadows;
     },
   };
 }

@@ -23,6 +23,7 @@ import { detectWebGLSupport, SceneManager } from './scene/SceneManager';
 import { appStore, type RenderMode, type SystemId } from './state/appState';
 import { createCarPicker, createModelErrorCard } from './ui/CarPicker';
 import { createCompareOverlay } from './ui/CompareOverlay';
+import { createCreditsModal } from './ui/CreditsModal';
 import { createGlossaryDrawer } from './ui/GlossaryDrawer';
 import { createHeaderBar } from './ui/HeaderBar';
 import { createHomeOverlay } from './ui/HomeOverlay';
@@ -45,10 +46,15 @@ async function bootstrap(): Promise<void> {
 
   let sceneManager: SceneManager;
   try {
-    sceneManager = new SceneManager(canvas, stageEl, () => {
-      appStore.update({ webglSupported: false });
-      renderWebGLFallback(uiRoot, 'The 3D WebGL context was interrupted.');
-    });
+    sceneManager = new SceneManager(
+      canvas,
+      stageEl,
+      () => {
+        appStore.update({ webglSupported: false });
+        renderWebGLFallback(uiRoot, 'The 3D WebGL context was interrupted.');
+      },
+      appStore.getSnapshot().graphicsQuality,
+    );
   } catch {
     appStore.update({ webglSupported: false });
     renderWebGLFallback(uiRoot, 'Unable to initialize the 3D WebGL renderer.');
@@ -61,6 +67,7 @@ async function bootstrap(): Promise<void> {
 
   let carRig: CarRig | null = null;
   let homePinEntries: ProjectedLabelEntry[] = [];
+  let lastHomeLabelSignature: string | null = null;
   let activeLessonModel: SystemModelInstance | null = null;
   let selectedPartId: string | null = null;
   let tourFlowPhase = 0;
@@ -85,6 +92,7 @@ async function bootstrap(): Promise<void> {
 
   const quizModal = createQuizModal(uiRoot);
   const glossaryDrawer = createGlossaryDrawer(uiRoot);
+  const creditsModal = createCreditsModal(uiRoot, []);
   const errorCard = createModelErrorCard(uiRoot);
 
   const cleanupActiveSubMode = () => {
@@ -108,24 +116,54 @@ async function bootstrap(): Promise<void> {
   };
 
   const selectRenderMode = (mode: RenderMode) => {
+    if (mode === 'solid' && carRig?.car.quality === 'outline-only') {
+      return;
+    }
+    const quality = appStore.getSnapshot().graphicsQuality;
+    sceneManager.renderer.shadowMap.enabled = mode === 'solid' && quality === 'high';
+    stage.setRenderState(mode, quality);
     appStore.update({ renderMode: mode });
     const snap = appStore.getSnapshot();
     carRig?.setRenderMode(mode, snap.layers, snap.xrayCar, snap.reduceMotion);
   };
 
-  const selectSystem = (id: SystemId) => {
-    appStore.update({ selectedSystem: id, hintDismissed: true });
+  const toggleQuality = () => {
+    const snap = appStore.getSnapshot();
+    const nextQuality = snap.graphicsQuality === 'high' ? 'low' : 'high';
+    appStore.update({ graphicsQuality: nextQuality });
+    sceneManager.setQuality(nextQuality);
+    sceneManager.renderer.shadowMap.enabled = snap.renderMode === 'solid' && nextQuality === 'high';
+    stage.setRenderState(snap.renderMode, nextQuality);
+    carRig?.setGraphicsQuality(nextQuality);
+    const vp = sceneManager.getViewportSize();
+    carRig?.setResolution(vp.width, vp.height);
+  };
+
+  const selectSystem = (id: SystemId, initialPartId: string | null = null) => {
+    appStore.update({
+      selectedSystem: id,
+      selectedPartId: initialPartId,
+      hintDismissed: true,
+    });
     if (!carRig) return;
 
     const snap = appStore.getSnapshot();
-    const meta = getSystemMetadata(id, snap.activePowertrain);
-    const shouldXray = snap.xrayCar || (snap.renderMode === 'solid' && meta.prefersXray);
-    if (shouldXray !== snap.xrayCar) {
-      appStore.update({ xrayCar: shouldXray });
-      carRig.setXRay(shouldXray, snap.reduceMotion);
-    }
-
     carRig.highlightSystem(id);
+    carRig.selectPart(initialPartId ? id : null, initialPartId);
+    syncHomeLabels(true);
+
+    if (snap.homeExplode > 0.04) {
+      const sphere = carRig.getExplodeFocusSphere();
+      if (sphere) {
+        cameraRig.fitBoundingSphere(sphere, {
+          desktopRightPanel: true,
+          reduceMotion: snap.reduceMotion,
+          duration: 0.55,
+          margin: 1.42,
+        });
+        return;
+      }
+    }
     const aspect = stageEl.clientWidth / Math.max(stageEl.clientHeight, 1);
     const { target, cameraPos } = carRig.getSystemFocus(id, aspect);
     cameraRig.focusAt(target, cameraPos, snap.reduceMotion);
@@ -137,13 +175,16 @@ async function bootstrap(): Promise<void> {
       viewMode: 'home',
       activeLesson: null,
       selectedSystem: null,
+      selectedPartId: null,
       xrayCar: false,
       homeExplode: 0,
     });
-    restoreCarLabels();
     carRig?.setExplode(0);
+    carRig?.selectPart(null, null);
+    carRig?.hoverPart(null, null);
     carRig?.highlightSystem(null);
     carRig?.setXRay(false, appStore.getSnapshot().reduceMotion);
+    restoreCarLabels();
     cameraRig.resetHome(appStore.getSnapshot().reduceMotion);
   };
 
@@ -376,14 +417,64 @@ async function bootstrap(): Promise<void> {
     onResetView: resetHome,
     onToggleXRay: toggleXRay,
     onToggleReduceMotion: toggleReduceMotion,
+    onToggleQuality: toggleQuality,
   });
 
   const homeOverlay = createHomeOverlay(uiRoot, labelLayer, {
-    onSelectSystem: selectSystem,
+    onSelectSystem: (id) => selectSystem(id),
     onResetHome: resetHome,
     onChangeExplode: (amount) => {
       appStore.update({ homeExplode: amount });
-      carRig?.setExplode(amount);
+      if (!carRig) return;
+      carRig.setExplode(amount);
+      syncHomeLabels();
+
+      const snap = appStore.getSnapshot();
+      if (snap.selectedSystem) {
+        if (amount <= 0.01) {
+          const aspect = stageEl.clientWidth / Math.max(stageEl.clientHeight, 1);
+          const { target, cameraPos } = carRig.getSystemFocus(snap.selectedSystem, aspect);
+          cameraRig.focusAt(target, cameraPos, snap.reduceMotion);
+        } else {
+          const sphere = carRig.getExplodeFocusSphere();
+          if (sphere) {
+            cameraRig.fitBoundingSphere(sphere, {
+              desktopRightPanel: true,
+              reduceMotion: snap.reduceMotion,
+              duration: 0.35,
+              margin: 1.42,
+            });
+          }
+        }
+      } else if (amount <= 0.01) {
+        cameraRig.resetHome(snap.reduceMotion);
+      } else {
+        const sphere = carRig.getExplodeFocusSphere();
+        if (sphere) {
+          cameraRig.fitBoundingSphere(sphere, {
+            desktopRightPanel: false,
+            reduceMotion: snap.reduceMotion,
+            duration: 0.38,
+            margin: 1.32,
+          });
+        }
+      }
+    },
+    onChangeIsolation: (mode) => {
+      appStore.update({ isolationMode: mode });
+      carRig?.setIsolationMode(mode, appStore.getSnapshot().reduceMotion);
+    },
+    onResetExplode: () => {
+      appStore.update({ homeExplode: 0 });
+      carRig?.setExplode(0);
+      syncHomeLabels(true);
+      cameraRig.resetHome(appStore.getSnapshot().reduceMotion);
+    },
+    onSelectExplodedPart: (sysId, partId) => {
+      const prev = appStore.getSnapshot().selectedPartId;
+      const next = prev === partId ? null : partId;
+      appStore.update({ selectedPartId: next });
+      carRig?.selectPart(next ? sysId : null, next);
     },
     onToggleLayer: (layer, visible) => {
       const nextLayers = {
@@ -402,6 +493,19 @@ async function bootstrap(): Promise<void> {
     onDismissHint: () => {
       appStore.update({ hintDismissed: true });
     },
+    onChangePaintColor: (colorHex) => {
+      appStore.update({ paintColor: colorHex });
+      carRig?.setPaintColor(colorHex);
+    },
+    onOpenCredits: () => {
+      if (creditsModal.isOpen()) creditsModal.close();
+      else creditsModal.open();
+    },
+    getSelectedPartInfo: (systemId, partId) => carRig?.getRigPartInfo(systemId, partId) ?? null,
+    onClearSelectedPart: () => {
+      appStore.update({ selectedPartId: null });
+      carRig?.selectPart(null, null);
+    },
   });
 
   const carPicker = createCarPicker(uiRoot, [], {
@@ -416,14 +520,35 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  function syncHomeLabels(force = false): void {
+    if (!carRig) return;
+    const snap = appStore.getSnapshot();
+    if (snap.viewMode !== 'home') return;
+    const useExplodedParts = snap.selectedSystem !== null && snap.homeExplode >= 0.08;
+    const sig = useExplodedParts ? `parts:${snap.selectedSystem}` : 'hotspots';
+    if (!force && sig === lastHomeLabelSignature) return;
+    lastHomeLabelSignature = sig;
+    if (useExplodedParts && snap.selectedSystem) {
+      homePinEntries = homeOverlay.createExplodedPartPins(
+        snap.selectedSystem,
+        carRig.getExplodedPartLabels(snap.selectedSystem),
+      );
+    } else {
+      homePinEntries = homeOverlay.createHotspotPins(
+        carRig.anchors,
+        carRig.outwardNormals,
+        carRig.systemAnchorObjects,
+      );
+    }
+    labelProjector.setVisible(true);
+    labelProjector.setEntries(homePinEntries);
+  }
+
   function restoreCarLabels(): void {
     if (!carRig) return;
     carRig.root.visible = true;
     stage.setShowroomPropsVisible(true);
-    labelLayer.innerHTML = '';
-    homePinEntries = homeOverlay.createHotspotPins(carRig.anchors, carRig.outwardNormals);
-    labelProjector.setVisible(true);
-    labelProjector.setEntries(homePinEntries);
+    syncHomeLabels(true);
   }
 
   async function switchCar(
@@ -463,11 +588,23 @@ async function bootstrap(): Promise<void> {
     labelLayer.innerHTML = '';
 
     headerBar.setCarSummary(car.name, car.thumbnail);
+    const isOutlineOnly = car.quality === 'outline-only';
+    headerBar.setSolidEnabled(
+      !isOutlineOnly,
+      isOutlineOnly ? 'Outline only — no full textured model yet' : undefined,
+    );
+    if (isOutlineOnly && appStore.getSnapshot().renderMode === 'solid') {
+      appStore.update({ renderMode: 'outline' });
+    }
     carPicker.setActiveCarId(car.id);
     cameraRig.setHomeCamera(car.defaultCamera);
 
     try {
       const snap = appStore.getSnapshot();
+      const effectiveMode = isOutlineOnly ? 'outline' : snap.renderMode;
+      sceneManager.renderer.shadowMap.enabled =
+        effectiveMode === 'solid' && snap.graphicsQuality === 'high';
+      stage.setRenderState(effectiveMode, snap.graphicsQuality);
       const loadedRig = await loadCarFromManifest(
         car,
         sceneManager.scene,
@@ -478,8 +615,11 @@ async function bootstrap(): Promise<void> {
             appStore.update({ loadingPercent: percent, loadingLabel: label });
           }
         },
-        snap.renderMode,
+        effectiveMode,
         snap.layers,
+        snap.isolationMode,
+        snap.paintColor,
+        snap.graphicsQuality,
       );
 
       if (token !== carSwitchToken) {
@@ -493,9 +633,6 @@ async function bootstrap(): Promise<void> {
       carRig.setResolution(vp.width, vp.height);
 
       homeOverlay.setAvailableSystems(carRig.availableSystems, car.powertrain);
-      homePinEntries = homeOverlay.createHotspotPins(carRig.anchors, carRig.outwardNormals);
-      labelProjector.setVisible(true);
-      labelProjector.setEntries(homePinEntries);
 
       const postSnap = appStore.getSnapshot();
       const preservedSystem =
@@ -508,16 +645,21 @@ async function bootstrap(): Promise<void> {
       cameraRig.resetHome(postSnap.reduceMotion);
       carRig.setExplode(postSnap.homeExplode);
       carRig.setXRay(postSnap.xrayCar, postSnap.reduceMotion);
+      carRig.selectPart(null, null);
+      carRig.hoverPart(null, null);
+      homeOverlay.setHoverPart(null);
       carRig.highlightSystem(preservedSystem);
 
       appStore.update({
         selectedCarId: car.id,
         activePowertrain: car.powertrain,
         selectedSystem: preservedSystem,
+        selectedPartId: null,
         carReady: true,
         loadingPercent: 100,
         loadingLabel: 'Ready',
       });
+      syncHomeLabels(true);
 
       if (options.updateUrl) {
         const nextUrl = new URL(window.location.href);
@@ -577,13 +719,94 @@ async function bootstrap(): Promise<void> {
     { passive: false },
   );
 
-  // 3D raycasting for car hotspots (Home/Tour) or mechanical sub-parts (Lesson)
+  // 3D raycasting for car hotspots / rig parts (Home/Tour) or mechanical sub-parts (Lesson)
   const raycaster = new THREE.Raycaster();
   const pointerDownPos = { x: 0, y: 0 };
+
+  const isObjectVisible = (obj: THREE.Object3D): boolean => {
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (!cur.visible) return false;
+      cur = cur.parent;
+    }
+    return true;
+  };
+
+  const getHomeRigPickTargets = (): THREE.Mesh[] => {
+    if (!carRig) return [];
+    const snap = appStore.getSnapshot();
+    if (!snap.layers.innerSystems) return [];
+    if (snap.selectedSystem) {
+      return carRig.rigPickMeshes.filter(
+        (m) => (m.userData.systemId as SystemId | undefined) === snap.selectedSystem,
+      );
+    }
+    return carRig.rigPickMeshes;
+  };
+
+  const setRaycasterFromPointer = (clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(ndc, sceneManager.camera);
+  };
 
   canvas.addEventListener('pointerdown', (e) => {
     pointerDownPos.x = e.clientX;
     pointerDownPos.y = e.clientY;
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const snap = appStore.getSnapshot();
+    if (
+      e.buttons !== 0 ||
+      e.target !== canvas ||
+      snap.viewMode !== 'home' ||
+      !carRig ||
+      carPicker.isOpen() ||
+      quizModal.isOpen() ||
+      glossaryDrawer.isOpen()
+    ) {
+      carRig?.hoverPart(null, null);
+      homeOverlay.setHoverPart(null);
+      canvas.style.cursor = '';
+      return;
+    }
+
+    setRaycasterFromPointer(e.clientX, e.clientY);
+    const rigHits = raycaster
+      .intersectObjects(getHomeRigPickTargets(), false)
+      .filter((h) => isObjectVisible(h.object));
+
+    if (rigHits.length > 0) {
+      const hitObj = rigHits[0].object;
+      const sysId = hitObj.userData.systemId as SystemId | undefined;
+      const partId = hitObj.userData.partId as string | undefined;
+      if (sysId && partId) {
+        carRig.hoverPart(sysId, partId);
+        const info = carRig.getRigPartInfo(sysId, partId);
+        homeOverlay.setHoverPart(
+          info ? { name: info.name, x: e.clientX, y: e.clientY } : null,
+        );
+        canvas.style.cursor = 'pointer';
+        return;
+      }
+    }
+
+    carRig.hoverPart(null, null);
+    homeOverlay.setHoverPart(null);
+    const hotspotHits = raycaster
+      .intersectObjects(carRig.hotspotMeshes, false)
+      .filter((h) => isObjectVisible(h.object));
+    canvas.style.cursor = hotspotHits.length > 0 ? 'pointer' : '';
+  });
+
+  canvas.addEventListener('pointerleave', () => {
+    carRig?.hoverPart(null, null);
+    homeOverlay.setHoverPart(null);
+    canvas.style.cursor = '';
   });
 
   canvas.addEventListener('pointerup', (e) => {
@@ -591,15 +814,11 @@ async function bootstrap(): Promise<void> {
     const dy = e.clientY - pointerDownPos.y;
     if (Math.hypot(dx, dy) > 6) return;
 
-    const mode = appStore.getSnapshot().viewMode;
+    const snap = appStore.getSnapshot();
+    const mode = snap.viewMode;
     if (mode === 'compare') return;
 
-    const rect = canvas.getBoundingClientRect();
-    const ndc = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
-    );
-    raycaster.setFromCamera(ndc, sceneManager.camera);
+    setRaycasterFromPointer(e.clientX, e.clientY);
 
     if (mode === 'lesson' && activeLessonModel) {
       const hits = raycaster.intersectObjects(activeLessonModel.partObjects, true);
@@ -616,10 +835,40 @@ async function bootstrap(): Promise<void> {
     }
 
     if (carRig && mode === 'home') {
-      const hits = raycaster.intersectObjects(carRig.hotspotMeshes, false);
-      if (hits.length > 0) {
-        const sysId = hits[0].object.userData.systemId as SystemId | undefined;
-        if (sysId) selectSystem(sysId);
+      const rigHits = raycaster
+        .intersectObjects(getHomeRigPickTargets(), false)
+        .filter((h) => isObjectVisible(h.object));
+
+      if (rigHits.length > 0 && snap.selectedSystem) {
+        const hitObj = rigHits[0].object;
+        const sysId = hitObj.userData.systemId as SystemId | undefined;
+        const partId = hitObj.userData.partId as string | undefined;
+        if (sysId && partId) {
+          const nextPartId = snap.selectedPartId === partId ? null : partId;
+          appStore.update({ selectedPartId: nextPartId, hintDismissed: true });
+          carRig.selectPart(nextPartId ? sysId : null, nextPartId);
+          return;
+        }
+      }
+
+      const hotspotHits = raycaster
+        .intersectObjects(carRig.hotspotMeshes, false)
+        .filter((h) => isObjectVisible(h.object));
+      if (hotspotHits.length > 0) {
+        const sysId = hotspotHits[0].object.userData.systemId as SystemId | undefined;
+        if (sysId) {
+          selectSystem(sysId);
+          return;
+        }
+      }
+
+      if (rigHits.length > 0) {
+        const hitObj = rigHits[0].object;
+        const sysId = hitObj.userData.systemId as SystemId | undefined;
+        const partId = hitObj.userData.partId as string | undefined;
+        if (sysId && partId) {
+          selectSystem(sysId, partId);
+        }
       }
     }
   });
@@ -723,11 +972,23 @@ async function bootstrap(): Promise<void> {
 
   sceneManager.start();
 
+  (
+    window as Window & {
+      __hcwDebug?: { getMemory: () => { geometries: number; textures: number } };
+    }
+  ).__hcwDebug = {
+    getMemory: () => ({
+      geometries: sceneManager.renderer.info.memory.geometries,
+      textures: sceneManager.renderer.info.memory.textures,
+    }),
+  };
+
   const bootstrapManifestAndInitialCar = async () => {
     try {
       carsManifest = await loadCarsManifest();
       preloadCarThumbnails(carsManifest);
       carPicker.setCars(carsManifest);
+      creditsModal.setCars(carsManifest);
 
       const initialCar = resolveCarFromManifest(
         carsManifest,

@@ -1,4 +1,4 @@
-import { POWERTRAIN_LABELS, type CarManifestEntry } from '../data/cars';
+import { POWERTRAIN_LABELS, type CarManifestEntry, type CarStyle } from '../data/cars';
 
 export interface CarPickerActions {
   onSelectCar: (car: CarManifestEntry) => void;
@@ -49,6 +49,7 @@ export function createCarPicker(
 ): CarPickerHandle {
   let cars = [...initialCars];
   let activeCarId = cars[0]?.id ?? '';
+  let activeTab: CarStyle = 'realistic';
   let openState = false;
 
   const popover = document.createElement('div');
@@ -80,15 +81,69 @@ export function createCarPicker(
 
   header.append(headerCopy, closeBtn);
 
+  const tabBar = document.createElement('div');
+  tabBar.className = 'car-picker-tabs';
+  tabBar.setAttribute('role', 'tablist');
+  tabBar.setAttribute('aria-label', 'Vehicle style category');
+
+  const STYLE_TABS: { id: CarStyle; label: string }[] = [
+    { id: 'realistic', label: 'Realistic' },
+    { id: 'stylized', label: 'Stylized' },
+  ];
+
+  const tabButtons = new Map<CarStyle, HTMLButtonElement>();
+  for (const tabSpec of STYLE_TABS) {
+    const tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.className = 'car-picker-tab';
+    tabBtn.dataset.styleTab = tabSpec.id;
+    tabBtn.setAttribute('role', 'tab');
+    tabBtn.setAttribute('aria-selected', String(tabSpec.id === activeTab));
+    tabBtn.innerHTML = `<span>${tabSpec.label}</span><span class="car-tab-count">0</span>`;
+    tabBtn.addEventListener('click', () => {
+      if (activeTab === tabSpec.id) return;
+      activeTab = tabSpec.id;
+      syncTabUI();
+      renderGrid();
+    });
+    tabBar.appendChild(tabBtn);
+    tabButtons.set(tabSpec.id, tabBtn);
+  }
+
+  tabBar.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      e.stopPropagation();
+      activeTab = activeTab === 'realistic' ? 'stylized' : 'realistic';
+      syncTabUI();
+      renderGrid();
+      tabButtons.get(activeTab)?.focus();
+    }
+  });
+
   const gridEl = document.createElement('div');
   gridEl.className = 'car-grid';
   gridEl.setAttribute('role', 'listbox');
   gridEl.setAttribute('aria-label', 'Car models');
 
-  popover.append(header, gridEl);
+  popover.append(header, tabBar, gridEl);
   uiRoot.appendChild(popover);
 
   const cardButtons = new Map<string, HTMLButtonElement>();
+
+  const getCarStyle = (car: CarManifestEntry): CarStyle =>
+    car.style ?? (car.id === 'coupe' ? 'realistic' : 'stylized');
+
+  const syncTabUI = () => {
+    for (const tabSpec of STYLE_TABS) {
+      const btn = tabButtons.get(tabSpec.id);
+      if (!btn) continue;
+      const count = cars.filter((c) => getCarStyle(c) === tabSpec.id).length;
+      btn.setAttribute('aria-selected', String(tabSpec.id === activeTab));
+      const countEl = btn.querySelector('.car-tab-count');
+      if (countEl) countEl.textContent = String(count);
+    }
+  };
 
   const updateActiveStyles = () => {
     for (const [id, btn] of cardButtons) {
@@ -103,10 +158,23 @@ export function createCarPicker(
   };
 
   const renderGrid = () => {
+    syncTabUI();
     gridEl.innerHTML = '';
     cardButtons.clear();
 
-    for (const car of cars) {
+    const filtered = cars.filter((c) => getCarStyle(c) === activeTab);
+    if (filtered.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'car-picker-empty';
+      emptyEl.textContent =
+        activeTab === 'realistic'
+          ? 'No realistic models available yet.'
+          : 'No stylized models available.';
+      gridEl.appendChild(emptyEl);
+      return;
+    }
+
+    for (const car of filtered) {
       const isActive = car.id === activeCarId;
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -118,16 +186,33 @@ export function createCarPicker(
       const topRow = document.createElement('div');
       topRow.className = 'car-card-top';
 
+      const badgesWrap = document.createElement('div');
+      badgesWrap.className = 'car-card-badges';
+
       const badge = document.createElement('span');
       badge.className = `car-powertrain-badge badge--${car.powertrain}`;
       badge.textContent = POWERTRAIN_LABELS[car.powertrain];
+      badgesWrap.appendChild(badge);
+
+      if (getCarStyle(car) === 'stylized') {
+        const styleBadge = document.createElement('span');
+        styleBadge.className = 'car-style-badge badge--stylized';
+        styleBadge.textContent = 'Stylized';
+        badgesWrap.appendChild(styleBadge);
+      }
+      if (car.quality === 'outline-only') {
+        const qualityBadge = document.createElement('span');
+        qualityBadge.className = 'car-style-badge badge--outline-only';
+        qualityBadge.textContent = 'Outline only';
+        badgesWrap.appendChild(qualityBadge);
+      }
 
       const activeTag = document.createElement('span');
       activeTag.className = 'car-active-check';
       activeTag.setAttribute('aria-hidden', 'true');
       activeTag.textContent = isActive ? 'Active' : '';
 
-      topRow.append(badge, activeTag);
+      topRow.append(badgesWrap, activeTag);
 
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'car-card-thumb';

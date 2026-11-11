@@ -12,17 +12,27 @@ import {
   updateOutlineResolution,
 } from '../scene/OutlineBuilder';
 import { disposeObject3D } from '../scene/SceneManager';
-import type { LayerVisibility, RenderMode, SystemId } from '../state/appState';
+import type {
+  GraphicsQuality,
+  IsolationMode,
+  LayerVisibility,
+  RenderMode,
+  SystemId,
+} from '../state/appState';
 import { createFlowStream } from './ProceduralHelpers';
+import { buildCarInnerRig, type RigPartLabelEntry, type RigPartMetadata } from './rig';
 
 export interface CarRig {
   car: CarManifestEntry;
   availableSystems: SystemId[];
   root: THREE.Group;
   anchors: Partial<Record<SystemId, THREE.Vector3>>;
+  systemAnchorObjects: Partial<Record<SystemId, THREE.Object3D>>;
   outwardNormals: Partial<Record<SystemId, THREE.Vector3>>;
   hotspotMeshes: THREE.Mesh[];
+  rigPickMeshes: THREE.Mesh[];
   setXRay: (enabled: boolean, reduceMotion: boolean) => void;
+  setIsolationMode: (mode: IsolationMode, reduceMotion: boolean) => void;
   setRenderMode: (
     mode: RenderMode,
     layers: LayerVisibility,
@@ -30,10 +40,17 @@ export interface CarRig {
     reduceMotion: boolean,
   ) => void;
   setLayers: (layers: LayerVisibility) => void;
+  setPaintColor: (colorHex: string) => void;
+  setGraphicsQuality: (quality: GraphicsQuality) => void;
   setResolution: (width: number, height: number) => void;
   setExplode: (amount: number) => void;
   setTourFlow: (enabled: boolean, phase: number) => void;
   highlightSystem: (systemId: SystemId | null) => void;
+  hoverPart: (systemId: SystemId | null, partId: string | null) => void;
+  selectPart: (systemId: SystemId | null, partId: string | null) => void;
+  getRigPartInfo: (systemId: SystemId, partId: string) => RigPartMetadata | null;
+  getExplodedPartLabels: (systemId: SystemId) => RigPartLabelEntry[];
+  getExplodeFocusSphere: () => THREE.Sphere | null;
   getSystemFocus: (
     systemId: SystemId,
     aspect: number,
@@ -45,19 +62,14 @@ export interface CarRig {
 interface MeshStyleRecord {
   mesh: THREE.Mesh;
   originalMaterial: THREE.Material | THREE.Material[];
+  clonedSolidMaterial: THREE.Material | THREE.Material[] | null;
   outlineFillMaterial: THREE.Material;
   isShell: boolean;
   systemIds: Set<SystemId>;
   outlineLine: LineSegments2 | null;
   silhouetteHull: THREE.Mesh | null;
   accentHighlightLine: LineSegments2 | null;
-}
-
-interface InternalSystemRecord {
-  systemId: SystemId;
-  mesh: THREE.Mesh;
-  dashedLine: LineSegments2 | null;
-  solidAccentLine: LineSegments2 | null;
+  solidRimHull: THREE.Mesh | null;
 }
 
 interface ExplodableNode {
@@ -181,6 +193,9 @@ export async function loadCarFromManifest(
   onProgress: (percent: number, label: string) => void,
   initialRenderMode: RenderMode = 'outline',
   initialLayers: LayerVisibility = { outline: true, mesh: true, innerSystems: true },
+  initialIsolationMode: IsolationMode = 'ghost',
+  initialPaintColor = 'original',
+  initialQuality: GraphicsQuality = 'high',
 ): Promise<CarRig> {
   onProgress(6, `Loading ${car.name}…`);
 
@@ -274,9 +289,37 @@ export async function loadCarFromManifest(
     metalness: 0,
     envMapIntensity: 0,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.12,
     depthWrite: false,
     side: THREE.DoubleSide,
+  });
+
+  const outlineGhostFillMat = new THREE.MeshBasicMaterial({
+    color: '#e5e4dd',
+    transparent: true,
+    opacity: 0.06,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  const solidGhostShellMat = new THREE.MeshStandardMaterial({
+    color: '#94a3b8',
+    roughness: 0.52,
+    metalness: 0.14,
+    transparent: true,
+    opacity: 0.06,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  const ghostInkMat = new LineMaterial({
+    color: 0x1c1b19,
+    linewidth: 1.4 * Math.min(window.devicePixelRatio || 1, 1.5),
+    transparent: true,
+    opacity: 0.2,
+    depthTest: true,
+    depthWrite: false,
+    resolution: new THREE.Vector2(800, 600),
   });
 
   const outlineBodyMat = new THREE.MeshStandardMaterial({
@@ -316,12 +359,16 @@ export async function loadCarFromManifest(
     colorWrite: false,
   });
 
-  const outlineActiveFillMat = new THREE.MeshBasicMaterial({
+  // Faint depth-tested accent tint (no depthTest: false flat boxes)
+  const outlineAccentTintMat = new THREE.MeshBasicMaterial({
     color: '#d93a1e',
     transparent: true,
-    opacity: 0.24,
-    depthTest: false,
+    opacity: 0.14,
+    depthTest: true,
     depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 
   const drawBufSize = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -338,15 +385,20 @@ export async function loadCarFromManifest(
     polygonOffsetUnits: -1,
     resolution: drawBufSize.clone(),
   });
+  ghostInkMat.resolution.copy(drawBufSize);
 
   const silhouetteHullMat = createSilhouetteHullMaterial('#1c1b19', 1.65, drawBufSize);
+  const solidRimHullMat = createSilhouetteHullMaterial('#d93a1e', 2.4, drawBufSize);
 
   const activeAccentLineMat = new LineMaterial({
     color: 0xd93a1e,
     linewidth: 2.8 * dpr,
     transparent: false,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
     resolution: drawBufSize.clone(),
   });
 
@@ -369,38 +421,239 @@ export async function loadCarFromManifest(
     }
   });
 
-  const shellPattern = /(BodyHood|BodyRoof|BodyDoor|BodyPanels|BodyRearPanels|BodyPillars|BodyTaillightsPanels|BodySide)/i;
+  const nm = car.nodeMap;
+  const nmShellSet = new Set<string>([
+    ...(nm?.shell ?? []),
+    ...(nm?.doors ?? []),
+    ...(nm?.hood ? [nm.hood] : []),
+  ]);
+  const nmGlassSet = new Set<string>(nm?.glass ?? []);
+  const nmWheelSet = new Set<string>(
+    [nm?.wheels?.fl, nm?.wheels?.fr, nm?.wheels?.rl, nm?.wheels?.rr].filter(
+      (x): x is string => Boolean(x),
+    ),
+  );
+
+  const isNodeOrAncestorInSet = (obj: THREE.Object3D, set: Set<string>): boolean => {
+    if (set.size === 0) return false;
+    let cur: THREE.Object3D | null = obj;
+    while (cur && cur !== model) {
+      if (cur.name && set.has(cur.name)) return true;
+      cur = cur.parent;
+    }
+    return false;
+  };
+
+  const fallbackShellPattern = /(BodyHood|BodyRoof|BodyDoor|BodyPanels|BodyRearPanels|BodyPillars|BodyTaillightsPanels|BodySide|BodyFrontBumper|BodyRearBumper|BodyFrontGrille|BodyUnderside|BodyShell)/i;
   const glassPattern = /(Windshield|Window|Rearwindow|Glass)/i;
-  const wheelTrimPattern = /(Wheel|Tire|Axle|Brake|InteriorSteering|Pedal|Grille|Bumper|EVBatteryPack|EVDriveUnit|RoofRail)/i;
+  const wheelTrimPattern = /(Wheel|Tire|Axle|Brake|InteriorSteering|Pedal|Grille|Bumper|EVBatteryPack|EVDriveUnit|RoofRail|rim|tire|rotor)/i;
   const skipEdgePattern =
-    /(Gasket|Wipers|BodyHoodInterior|InteriorSeats|InteriorFloor|InteriorDash|InteriorCage|InteriorDoor)/i;
+    /(Gasket|Wipers|BodyHoodInterior|InteriorSeats|InteriorFloor|InteriorDash|InteriorCage|InteriorDoor|^Interior_)/i;
+
+  let currentQuality: GraphicsQuality = initialQuality;
+  let currentPaintColor = initialPaintColor;
+  const paintMaterialEntries: { mat: THREE.MeshPhysicalMaterial; factoryColor: THREE.Color }[] = [];
+  const glassMaterials: THREE.MeshPhysicalMaterial[] = [];
+  const normalizedMatCache = new Map<string, THREE.Material>();
+  const retiredOriginalMats = new Set<THREE.Material>();
+
+  const toPhysicalClone = (src: THREE.Material): THREE.MeshPhysicalMaterial => {
+    if (src instanceof THREE.MeshPhysicalMaterial) {
+      return src.clone();
+    }
+    const std = src as THREE.MeshStandardMaterial;
+    const phys = new THREE.MeshPhysicalMaterial({
+      name: src.name,
+      color: std.color ? std.color.clone() : new THREE.Color('#ffffff'),
+      map: std.map ?? null,
+      normalMap: std.normalMap ?? null,
+      roughnessMap: std.roughnessMap ?? null,
+      metalnessMap: std.metalnessMap ?? null,
+      aoMap: std.aoMap ?? null,
+      emissive: std.emissive ? std.emissive.clone() : new THREE.Color(0x000000),
+      emissiveMap: std.emissiveMap ?? null,
+      emissiveIntensity: std.emissiveIntensity ?? 1,
+      roughness: std.roughness ?? 0.4,
+      metalness: std.metalness ?? 0.1,
+      side: src.side,
+      transparent: src.transparent,
+      opacity: src.opacity,
+      alphaTest: src.alphaTest,
+    });
+    return phys;
+  };
+
+  const nonPaintShellRe =
+    /(grille|bumper|gasket|wiper|light|headlight|taillight|turnsignal|license|badge|emblem|underside|interior|seat|dash|carpet|floor|carbon|base_mat|coloured|color2|col2|window|handle0|roofrail|tire|tyre|rotor|rim|brake|caliper|pipe|exhaust|muffler)/i;
+  const chromeTrimRe = /(chrome|^mirror$|badge|emblem|hardware)/i;
+  const tireRe = /(tire|tyre|tiretread|tireside)/i;
+  const rimRe = /(rim|spoke)/i;
 
   const meshRecords: MeshStyleRecord[] = [];
 
   for (const mesh of sourceMeshes) {
+    // Hide primitive low-poly beveled/box Engine placeholder in CarConcept.glb; real rig supplies engine
+    const posCount = mesh.geometry?.attributes.position?.count ?? 0;
+    if (/^Engine$/i.test(mesh.name) && posCount <= 256) {
+      mesh.visible = false;
+      continue;
+    }
+
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    let isGlass = glassPattern.test(mesh.name);
-    for (const mat of mats) {
-      if (mat instanceof THREE.MeshPhysicalMaterial && mat.transmission > 0) {
-        isGlass = true;
-        mat.transmission = 0;
-        mat.transparent = true;
-        mat.color.set('#334155');
-        mat.opacity = 0.42;
-        mat.roughness = 0.08;
-        mat.envMapIntensity = 0.65;
-        mat.depthWrite = false;
-        mat.needsUpdate = true;
+    const origMats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const hasTransmissive = origMats.some(
+      (m) => m instanceof THREE.MeshPhysicalMaterial && m.transmission > 0,
+    );
+    const isGlass =
+      isNodeOrAncestorInSet(mesh, nmGlassSet) ||
+      glassPattern.test(mesh.name) ||
+      hasTransmissive;
+
+    const isWheelFromMap = isNodeOrAncestorInSet(mesh, nmWheelSet);
+    const isWheelOrMech = isWheelFromMap || wheelTrimPattern.test(mesh.name);
+    const isShellFromMap = nm ? isNodeOrAncestorInSet(mesh, nmShellSet) : fallbackShellPattern.test(mesh.name);
+    const isShell = isShellFromMap && !isGlass && !isWheelFromMap;
+    const skipEdges = skipEdgePattern.test(mesh.name);
+    const sysSet = meshNameToSystems.get(mesh.name) ?? new Set<SystemId>();
+
+    // Normalize Solid-mode PBR materials once per material role
+    const normalizedMats = origMats.map((srcMat) => {
+      if (!srcMat) return srcMat;
+      const combinedLabel = `${mesh.name} ${srcMat.name || ''}`;
+      let role: 'glass' | 'tire' | 'rim' | 'chrome' | 'paint' | 'trim' = 'trim';
+
+      if (isGlass) {
+        role = 'glass';
+      } else if (tireRe.test(combinedLabel)) {
+        role = 'tire';
+      } else if (isWheelFromMap && !/(brake|rotor|disc|caliper|pad)/i.test(combinedLabel)) {
+        // Inside wheel assembly: distinguish dark rubber tire vs metallic rim by luminance or name
+        const col = (srcMat as THREE.MeshStandardMaterial).color;
+        const lum = col ? col.r * 0.299 + col.g * 0.587 + col.b * 0.114 : 0.5;
+        role = !rimRe.test(combinedLabel) && lum < 0.06 && !srcMat.name?.includes('015') ? 'tire' : 'rim';
+      } else if (rimRe.test(combinedLabel)) {
+        role = 'rim';
+      } else if (chromeTrimRe.test(srcMat.name || mesh.name) && !/color1/i.test(combinedLabel)) {
+        role = 'chrome';
+      } else if (isShell && !nonPaintShellRe.test(combinedLabel)) {
+        const std = srcMat as THREE.MeshStandardMaterial;
+        const col = std.color;
+        const maxC = col ? Math.max(col.r, col.g, col.b) : 0.5;
+        const minC = col ? Math.min(col.r, col.g, col.b) : 0.5;
+        const isBlackCladding =
+          !std.map &&
+          !/paint/i.test(srcMat.name || '') &&
+          maxC < 0.08 &&
+          maxC - minC < 0.03;
+        role = isBlackCladding ? 'trim' : 'paint';
+      }
+
+      const cacheKey = `${srcMat.uuid}:${role}`;
+      const existing = normalizedMatCache.get(cacheKey);
+      if (existing) {
+        if (existing !== srcMat) retiredOriginalMats.add(srcMat);
+        return existing;
+      }
+
+      if (role === 'glass') {
+        const phys = toPhysicalClone(srcMat);
+        phys.transmission = Math.max(phys.transmission || 0, 0.72);
+        phys.ior = 1.5;
+        phys.thickness = 0.04;
+        phys.roughness = 0.06;
+        phys.metalness = 0;
+        phys.envMapIntensity = 1.4;
+        phys.attenuationColor = new THREE.Color('#2c3e52');
+        phys.attenuationDistance = 0.55;
+        phys.color.set('#a8bcd0');
+        phys.transparent = true;
+        phys.opacity = 0.9;
+        phys.depthWrite = false;
+        phys.needsUpdate = true;
+        glassMaterials.push(phys);
+        normalizedMatCache.set(cacheKey, phys);
+        if (phys !== srcMat) retiredOriginalMats.add(srcMat);
+        return phys;
+      }
+
+      if (role === 'paint') {
+        const phys = toPhysicalClone(srcMat);
+        const factoryColor = phys.color.clone();
+        // Brighten near-black default paint only on procedural/metallic coats named Paint 1
+        phys.clearcoat = 1.0;
+        phys.clearcoatRoughness = 0.07;
+        phys.roughness = 0.1;
+        phys.metalness = 0.32;
+        phys.ior = 1.5;
+        phys.reflectivity = 0.9;
+        phys.envMapIntensity = 1.38;
+        if (currentPaintColor !== 'original') {
+          phys.color.set(currentPaintColor);
+        }
+        phys.needsUpdate = true;
+        paintMaterialEntries.push({ mat: phys, factoryColor });
+        normalizedMatCache.set(cacheKey, phys);
+        if (phys !== srcMat) retiredOriginalMats.add(srcMat);
+        return phys;
+      }
+
+      if (role === 'tire') {
+        const phys = toPhysicalClone(srcMat);
+        phys.clearcoat = 0;
+        phys.roughness = 0.86;
+        phys.metalness = 0.04;
+        phys.envMapIntensity = 0.55;
+        if (!phys.map && phys.color.r > 0.4) {
+          phys.color.set('#1a1c20');
+        }
+        phys.needsUpdate = true;
+        normalizedMatCache.set(cacheKey, phys);
+        if (phys !== srcMat) retiredOriginalMats.add(srcMat);
+        return phys;
+      }
+
+      if (role === 'rim') {
+        const phys = toPhysicalClone(srcMat);
+        phys.clearcoat = 0.18;
+        phys.clearcoatRoughness = 0.25;
+        phys.roughness = 0.24;
+        phys.metalness = 0.88;
+        phys.envMapIntensity = 1.3;
+        phys.needsUpdate = true;
+        normalizedMatCache.set(cacheKey, phys);
+        if (phys !== srcMat) retiredOriginalMats.add(srcMat);
+        return phys;
+      }
+
+      if (role === 'chrome') {
+        const phys = toPhysicalClone(srcMat);
+        phys.clearcoat = 0.35;
+        phys.roughness = 0.06;
+        phys.metalness = 0.96;
+        phys.envMapIntensity = 1.55;
+        phys.needsUpdate = true;
+        normalizedMatCache.set(cacheKey, phys);
+        if (phys !== srcMat) retiredOriginalMats.add(srcMat);
+        return phys;
+      }
+
+      normalizedMatCache.set(cacheKey, srcMat);
+      return srcMat;
+    });
+
+    mesh.material = Array.isArray(mesh.material) ? normalizedMats : normalizedMats[0];
+
+    // Clone solid material only on meshes referenced by system meshNames for non-leaking Solid highlight tint
+    let clonedSolidMaterial: THREE.Material | THREE.Material[] | null = null;
+    if (sysSet.size > 0) {
+      if (Array.isArray(mesh.material)) {
+        clonedSolidMaterial = mesh.material.map((m) => m.clone());
+      } else if (mesh.material) {
+        clonedSolidMaterial = mesh.material.clone();
       }
     }
-
-    const isShell = shellPattern.test(mesh.name);
-    const skipEdges = skipEdgePattern.test(mesh.name);
-    const isWheelOrMech = wheelTrimPattern.test(mesh.name);
-    const sysSet = meshNameToSystems.get(mesh.name) ?? new Set<SystemId>();
 
     const outlineFillMaterial = isGlass
       ? outlineGlassMat
@@ -411,9 +664,18 @@ export async function loadCarFromManifest(
     let outlineLine: LineSegments2 | null = null;
     let silhouetteHull: THREE.Mesh | null = null;
     let accentHighlightLine: LineSegments2 | null = null;
+    let solidRimHull: THREE.Mesh | null = null;
 
-    if (!skipEdges) {
-      const thresholdAngle = isWheelOrMech ? 34 : 25;
+    if (!mesh.geometry.boundingSphere) {
+      mesh.geometry.computeBoundingSphere();
+    }
+    const meshRadius = mesh.geometry.boundingSphere?.radius ?? 1;
+    const microDetail = sourceMeshes.length > 35 && meshRadius < 0.045 && !sysSet.size;
+
+    if (!skipEdges && !microDetail) {
+      const veryDenseMesh = posCount > 9000;
+      const highPolyMesh = posCount > 4000;
+      const thresholdAngle = veryDenseMesh ? 52 : highPolyMesh ? 44 : isWheelOrMech ? 34 : 25;
       const tmpLine = createMeshOutline(mesh, {
         color: '#1c1b19',
         linewidthPx: 1.9,
@@ -432,7 +694,7 @@ export async function loadCarFromManifest(
           accLine.name = `${mesh.name}_AccentOutline`;
           accLine.userData.isOutlineChild = true;
           accLine.userData.baseLinewidthPx = 2.8;
-          accLine.renderOrder = 9;
+          accLine.renderOrder = 8;
           accLine.visible = false;
           mesh.add(accLine);
           accentHighlightLine = accLine;
@@ -440,7 +702,7 @@ export async function loadCarFromManifest(
       }
     }
 
-    if (isShell && mesh.geometry.attributes.normal) {
+    if (isShell && mesh.geometry.attributes.normal && meshRadius > 0.25) {
       const hull = new THREE.Mesh(mesh.geometry, silhouetteHullMat);
       hull.name = `${mesh.name}_Silhouette`;
       hull.userData.isOutlineChild = true;
@@ -451,26 +713,42 @@ export async function loadCarFromManifest(
       silhouetteHull = hull;
     }
 
+    if (sysSet.size > 0 && mesh.geometry.attributes.normal) {
+      const rim = new THREE.Mesh(mesh.geometry, solidRimHullMat);
+      rim.name = `${mesh.name}_SolidAccentRim`;
+      rim.userData.isOutlineChild = true;
+      rim.userData.isSilhouetteHull = true;
+      rim.userData.baseLinewidthPx = 2.4;
+      rim.renderOrder = 4;
+      rim.visible = false;
+      mesh.add(rim);
+      solidRimHull = rim;
+    }
+
     meshRecords.push({
       mesh,
       originalMaterial: mesh.material,
+      clonedSolidMaterial,
       outlineFillMaterial,
       isShell,
       systemIds: sysSet,
       outlineLine,
       silhouetteHull,
       accentHighlightLine,
+      solidRimHull,
     });
   }
 
-  // Transform world-space explode directions cleanly into any glTF node's local parent coordinate space
+  // Manifest-driven whole-car shell explode nodes (supports local parent space & prevents duplicate transforms)
   const explodableNodes: ExplodableNode[] = [];
+  const seenExplodableObjs = new Set<THREE.Object3D>();
   const tempQuat = new THREE.Quaternion();
   const tempScale = new THREE.Vector3();
   const addWorldExplodable = (nodeNames: string[], worldOffset: [number, number, number]) => {
     for (const name of nodeNames) {
       const obj = model.getObjectByName(name);
-      if (obj) {
+      if (obj && !seenExplodableObjs.has(obj)) {
+        seenExplodableObjs.add(obj);
         const localOffset = new THREE.Vector3(...worldOffset);
         if (obj.parent) {
           obj.parent.getWorldQuaternion(tempQuat);
@@ -493,15 +771,22 @@ export async function loadCarFromManifest(
     }
   };
 
-  addWorldExplodable(['BodyHood'], [0, 0.34, frontSign * 0.38]);
-  addWorldExplodable(['BodyRoofPanel'], [0, 0.36, 0]);
-  addWorldExplodable(['BodyRearPanels', 'BodyRearPanelsColor1'], [0, 0.28, -frontSign * 0.32]);
-  addWorldExplodable(['WheelFrontL', 'WheelRearL'], [0.35, 0, 0]);
-  addWorldExplodable(['WheelFrontR', 'WheelRearR'], [-0.35, 0, 0]);
+  for (const part of car.shell ?? []) {
+    const dir = new THREE.Vector3(
+      part.direction[0],
+      part.direction[1],
+      part.direction[2] * frontSign,
+    );
+    if (dir.lengthSq() > 0) {
+      dir.normalize().multiplyScalar(part.distance);
+      addWorldExplodable(part.nodeNames, [dir.x, dir.y, dir.z]);
+    }
+  }
 
-  const hoodObj = model.getObjectByName('BodyHood');
+  const hoodNodeName = car.nodeMap ? car.nodeMap.hood : 'BodyHood';
+  const hoodObj = hoodNodeName ? model.getObjectByName(hoodNodeName) : undefined;
   const hoodBasePos = hoodObj ? hoodObj.position.clone() : new THREE.Vector3();
-  const hoodWorldUpLocal = new THREE.Vector3(0, 0.14, 0);
+  const hoodWorldUpLocal = new THREE.Vector3(0, 0.36, 0);
   if (hoodObj?.parent) {
     hoodObj.parent.getWorldQuaternion(tempQuat);
     hoodObj.parent.getWorldScale(tempScale);
@@ -510,209 +795,23 @@ export async function loadCarFromManifest(
       .divide(new THREE.Vector3(Math.max(tempScale.x, 0.001), Math.max(tempScale.y, 0.001), Math.max(tempScale.z, 0.001)));
   }
 
-  // Internal schematic assemblies adapted dynamically to the car's dimensions, anchors & powertrain
-  const internalGroup = new THREE.Group();
-  internalGroup.name = 'InternalXRaySystems';
-  root.add(internalGroup);
+  // Build detailed inner-system rig assemblies from src/models/systems/*.ts (replaces box placeholders)
+  onProgress(94, `Fitting ${car.name} inner systems rig…`);
+  const innerRig = await buildCarInnerRig(
+    availableSystems,
+    car.powertrain,
+    anchors,
+    finalBox,
+    carSize,
+    frontSign,
+    drawBufSize,
+  );
+  root.add(innerRig.root);
 
-  const dashedLineMat = new LineMaterial({
-    color: 0x45413a,
-    linewidth: 1.25 * dpr,
-    dashed: true,
-    dashScale: 1,
-    dashSize: 0.055,
-    gapSize: 0.036,
-    transparent: true,
-    opacity: 0.56,
-    depthTest: false,
-    depthWrite: false,
-    resolution: drawBufSize.clone(),
-  });
-
-  const internalRecords: InternalSystemRecord[] = [];
-  const registerInternalPart = (
-    id: SystemId,
-    geo: THREE.BufferGeometry,
-    pos: THREE.Vector3,
-    rot?: [number, number, number],
-  ) => {
-    const solidMat = new THREE.MeshStandardMaterial({
-      color: '#cbd5e1',
-      emissive: '#d93a1e',
-      emissiveIntensity: 0.08,
-      roughness: 0.34,
-      metalness: 0.55,
-      transparent: true,
-      opacity: 0.52,
-    });
-    const mesh = new THREE.Mesh(geo, solidMat);
-    mesh.position.copy(pos);
-    if (rot) mesh.rotation.set(rot[0], rot[1], rot[2]);
-    mesh.userData.solidMaterial = solidMat;
-    internalGroup.add(mesh);
-
-    const dashedLine = createMeshOutline(mesh, {
-      color: '#45413a',
-      linewidthPx: 1.25,
-      thresholdAngle: 48,
-      dashed: true,
-      dashSize: 0.055,
-      gapSize: 0.036,
-      opacity: 0.56,
-      depthTest: false,
-      renderOrder: 6,
-      resolution: drawBufSize.clone(),
-    });
-    if (dashedLine) {
-      dashedLine.material.dispose();
-      dashedLine.material = dashedLineMat;
-      dashedLine.computeLineDistances();
-      dashedLine.renderOrder = 6;
-      mesh.add(dashedLine);
-    }
-
-    const solidAccentLine = createMeshOutline(mesh, {
-      color: '#d93a1e',
-      linewidthPx: 2.8,
-      thresholdAngle: 48,
-      depthTest: false,
-      renderOrder: 9,
-      resolution: drawBufSize.clone(),
-    });
-    if (solidAccentLine) {
-      solidAccentLine.material.dispose();
-      solidAccentLine.material = activeAccentLineMat;
-      solidAccentLine.renderOrder = 9;
-      solidAccentLine.visible = false;
-      mesh.add(solidAccentLine);
-    }
-
-    internalRecords.push({
-      systemId: id,
-      mesh,
-      dashedLine,
-      solidAccentLine,
-    });
-  };
-
-  const has = (id: SystemId) => Boolean(anchors[id]);
+  // Guided Tour animated energy flow path adapted to car powertrain
   const aEngine = anchors.engine ?? getBoundingBoxApproxAnchor('engine', finalBox, frontSign);
   const aBrakes = anchors.brakes ?? getBoundingBoxApproxAnchor('brakes', finalBox, frontSign);
   const aSusp = anchors.suspension ?? getBoundingBoxApproxAnchor('suspension', finalBox, frontSign);
-  const aSteer = anchors.steering ?? getBoundingBoxApproxAnchor('steering', finalBox, frontSign);
-
-  if (has('engine')) {
-    if (car.powertrain === 'ev') {
-      // Compact front EV cylindrical traction drive unit + top inverter fin housing
-      registerInternalPart(
-        'engine',
-        new THREE.CylinderGeometry(0.15, 0.15, 0.42, 12),
-        anchors.engine!,
-        [0, 0, Math.PI / 2],
-      );
-      registerInternalPart(
-        'engine',
-        new THREE.BoxGeometry(0.32, 0.12, 0.24),
-        anchors.engine!.clone().add(new THREE.Vector3(0, 0.16, 0)),
-      );
-    } else {
-      registerInternalPart('engine', new THREE.BoxGeometry(0.46, 0.28, 0.48), anchors.engine!);
-      registerInternalPart(
-        'engine',
-        new THREE.BoxGeometry(0.32, 0.11, 0.44),
-        anchors.engine!.clone().add(new THREE.Vector3(0, 0.18, 0)),
-      );
-    }
-  }
-
-  if (has('transmission')) {
-    registerInternalPart(
-      'transmission',
-      new THREE.BoxGeometry(0.28, 0.24, 0.44),
-      anchors.transmission!,
-    );
-    if (car.powertrain !== 'ev') {
-      registerInternalPart(
-        'transmission',
-        new THREE.BoxGeometry(0.055, 0.055, Math.abs(aEngine.z - aSusp.z) * 0.7),
-        new THREE.Vector3(0, finalBox.min.y + carSize.y * 0.24, (aEngine.z + aSusp.z) * 0.5),
-      );
-    }
-  }
-
-  if (has('brakes')) {
-    registerInternalPart(
-      'brakes',
-      new THREE.CylinderGeometry(0.17, 0.17, 0.045, 10),
-      aBrakes,
-      [0, 0, Math.PI / 2],
-    );
-  }
-
-  if (has('suspension')) {
-    registerInternalPart(
-      'suspension',
-      new THREE.BoxGeometry(0.09, 0.28, 0.09),
-      aSusp.clone().add(new THREE.Vector3(-0.08, 0.14, 0)),
-    );
-  }
-
-  if (has('steering')) {
-    registerInternalPart(
-      'steering',
-      new THREE.BoxGeometry(carSize.x * 0.62, 0.045, 0.045),
-      new THREE.Vector3(0, aBrakes.y, aBrakes.z),
-    );
-    const steerColMid = aSteer.clone().lerp(new THREE.Vector3(0, aBrakes.y, aBrakes.z), 0.5);
-    registerInternalPart(
-      'steering',
-      new THREE.BoxGeometry(0.04, 0.04, 0.54),
-      steerColMid,
-      [Math.PI / 4, 0, 0],
-    );
-  }
-
-  if (has('electrical')) {
-    if (car.powertrain === 'ev') {
-      // Underfloor EV HV skateboard battery tray + orange inverter box
-      registerInternalPart(
-        'electrical',
-        new THREE.BoxGeometry(carSize.x * 0.56, 0.1, carSize.z * 0.44),
-        new THREE.Vector3(0, finalBox.min.y + 0.24, 0),
-      );
-    } else {
-      registerInternalPart(
-        'electrical',
-        new THREE.BoxGeometry(0.24, 0.15, 0.18),
-        anchors.electrical!,
-      );
-    }
-  }
-
-  if (has('cooling')) {
-    registerInternalPart(
-      'cooling',
-      new THREE.BoxGeometry(0.56, 0.28, 0.06),
-      anchors.cooling!,
-    );
-  }
-
-  if (has('exhaust') && car.powertrain !== 'ev') {
-    const aExh = anchors.exhaust!;
-    const exhLen = Math.abs(aEngine.z - aExh.z);
-    registerInternalPart(
-      'exhaust',
-      new THREE.BoxGeometry(0.05, 0.05, exhLen),
-      new THREE.Vector3(aExh.x, finalBox.min.y + 0.2, (aEngine.z + aExh.z) * 0.5),
-    );
-    registerInternalPart(
-      'exhaust',
-      new THREE.BoxGeometry(0.16, 0.12, 0.36),
-      aExh,
-    );
-  }
-
-  // Guided Tour animated energy flow path adapted to car powertrain
   const flowPts =
     car.powertrain === 'ev'
       ? [
@@ -762,25 +861,33 @@ export async function loadCarFromManifest(
 
   let currentRenderMode: RenderMode = initialRenderMode;
   let currentLayers: LayerVisibility = { ...initialLayers };
+  let currentIsolation: IsolationMode = initialIsolationMode;
   let isXRayOn = false;
   let currentExplode = 0;
   let activeSystem: SystemId | null = null;
+  let hoveredPart: { systemId: SystemId; partId: string } | null = null;
+  let selectedPart: { systemId: SystemId; partId: string } | null = null;
 
-  // Pre-compile X-ray materials once for smooth runtime transitions
+  // Pre-compile X-ray & rig materials once for smooth runtime transitions
   for (const rec of meshRecords) {
     if (rec.isShell) rec.mesh.material = solidXrayShellMat;
   }
-  internalGroup.visible = true;
+  innerRig.root.visible = true;
   renderer.compile(scene, camera);
+
+  const shouldLiftHood = (xrayEnabled: boolean) =>
+    activeSystem === null
+      ? xrayEnabled
+      : currentIsolation === 'all' && (xrayEnabled || activeSystem === 'engine');
 
   const applyHoodOffset = (xrayEnabled: boolean, explodeAmt: number, reduceMotion: boolean) => {
     if (!hoodObj) return;
-    const explodeRec = explodableNodes.find((n) => n.obj === hoodObj);
+    const explodeRec = activeSystem === null ? explodableNodes.find((n) => n.obj === hoodObj) : undefined;
     const targetPos = hoodBasePos.clone();
     if (explodeRec) {
       targetPos.addScaledVector(explodeRec.localOffset, explodeAmt);
     }
-    if (xrayEnabled) {
+    if (shouldLiftHood(xrayEnabled)) {
       targetPos.add(hoodWorldUpLocal);
     }
     const duration = reduceMotion ? 0.01 : 0.3;
@@ -794,13 +901,64 @@ export async function loadCarFromManifest(
     });
   };
 
+  const applySolidTint = (mat: THREE.Material, active: boolean) => {
+    if (mat instanceof THREE.MeshStandardMaterial) {
+      if (active) {
+        mat.emissive.set('#d93a1e');
+        mat.emissiveIntensity = 0.24;
+      } else {
+        mat.emissive.setHex(0x000000);
+        mat.emissiveIntensity = 0;
+      }
+    }
+  };
+
   const syncVisuals = (reduceMotion: boolean) => {
     const isOutline = currentRenderMode === 'outline';
+    const hasSelectedSystem = activeSystem !== null;
+    const iso: IsolationMode = hasSelectedSystem ? currentIsolation : 'all';
+
+    // When exploding an isolated/selected system, smoothly fade remaining shell & sibling systems out
+    const explodeFade =
+      hasSelectedSystem && currentExplode > 0.02
+        ? Math.max(0, 1 - currentExplode * 1.45)
+        : 1;
+    const ghostFade = iso === 'isolate' ? 0 : explodeFade;
+    const useGhostLook = iso === 'ghost' || (iso === 'all' && hasSelectedSystem && currentExplode > 0.04);
+
+    outlineGhostFillMat.opacity = 0.06 * ghostFade;
+    solidGhostShellMat.opacity = 0.06 * ghostFade;
+    ghostInkMat.opacity = 0.2 * ghostFade;
 
     for (const rec of meshRecords) {
-      const meshActive = isOutline && activeSystem !== null && rec.systemIds.has(activeSystem);
+      const meshActive = activeSystem !== null && rec.systemIds.has(activeSystem);
 
+      if (activeSystem !== null && !meshActive && (iso === 'isolate' || ghostFade <= 0.015)) {
+        rec.mesh.visible = false;
+        if (rec.outlineLine) rec.outlineLine.visible = false;
+        if (rec.silhouetteHull) rec.silhouetteHull.visible = false;
+        if (rec.accentHighlightLine) rec.accentHighlightLine.visible = false;
+        if (rec.solidRimHull) rec.solidRimHull.visible = false;
+        continue;
+      }
+
+      rec.mesh.visible = true;
+
+      if (useGhostLook && !meshActive) {
+        if (rec.outlineLine) {
+          rec.outlineLine.visible = isOutline && currentLayers.outline;
+          rec.outlineLine.material = ghostInkMat;
+        }
+        if (rec.silhouetteHull) rec.silhouetteHull.visible = false;
+        if (rec.accentHighlightLine) rec.accentHighlightLine.visible = false;
+        if (rec.solidRimHull) rec.solidRimHull.visible = false;
+        rec.mesh.material = isOutline ? outlineGhostFillMat : solidGhostShellMat;
+        continue;
+      }
+
+      // Full / X-Ray / Active Highlight rendering
       if (rec.outlineLine) {
+        rec.outlineLine.material = primaryInkMat;
         rec.outlineLine.visible = isOutline && currentLayers.outline && !meshActive;
       }
       if (rec.silhouetteHull) {
@@ -808,50 +966,78 @@ export async function loadCarFromManifest(
           isOutline && currentLayers.outline && currentLayers.mesh && !isXRayOn;
       }
       if (rec.accentHighlightLine) {
-        rec.accentHighlightLine.visible = meshActive;
+        rec.accentHighlightLine.visible = isOutline && meshActive;
+      }
+      if (rec.solidRimHull) {
+        rec.solidRimHull.visible = !isOutline && meshActive;
       }
 
       if (isOutline) {
         if (meshActive) {
-          rec.mesh.material = outlineActiveFillMat;
+          rec.mesh.material = outlineAccentTintMat;
         } else if (!currentLayers.mesh) {
           rec.mesh.material = outlineHiddenFillMat;
-        } else if (isXRayOn && rec.isShell) {
+        } else if (
+          (isXRayOn || (iso === 'all' && activeSystem !== null && SYSTEM_MAP[activeSystem]?.prefersXray)) &&
+          rec.isShell
+        ) {
           rec.mesh.material = outlineXrayShellMat;
         } else {
           rec.mesh.material = rec.outlineFillMaterial;
         }
+      } else if (isXRayOn && rec.isShell) {
+        rec.mesh.material = solidXrayShellMat;
+      } else if (meshActive && rec.clonedSolidMaterial) {
+        if (Array.isArray(rec.clonedSolidMaterial)) {
+          rec.clonedSolidMaterial.forEach((m) => applySolidTint(m, true));
+        } else {
+          applySolidTint(rec.clonedSolidMaterial, true);
+        }
+        rec.mesh.material = rec.clonedSolidMaterial;
       } else {
-        rec.mesh.material = isXRayOn && rec.isShell ? solidXrayShellMat : rec.originalMaterial;
+        rec.mesh.material = rec.originalMaterial;
       }
     }
 
-    internalGroup.visible = isOutline
-      ? currentLayers.innerSystems
-      : isXRayOn || currentExplode > 0.05;
+    const showRig = hasSelectedSystem
+      ? true
+      : isOutline
+        ? currentLayers.innerSystems || currentExplode > 0.02
+        : isXRayOn || currentExplode > 0.02;
+    innerRig.root.visible = showRig;
 
-    for (const rec of internalRecords) {
-      const isActive = rec.systemId === activeSystem;
-      if (isOutline) {
-        rec.mesh.material = isActive ? outlineActiveFillMat : outlineHiddenFillMat;
-        rec.mesh.renderOrder = isActive ? 7 : 1;
-        if (rec.dashedLine) rec.dashedLine.visible = !isActive;
-        if (rec.solidAccentLine) rec.solidAccentLine.visible = isActive;
+    if (showRig) {
+      const visibleSystems = new Set<SystemId>();
+      const ghostedSystems = new Set<SystemId>();
+
+      if (activeSystem !== null) {
+        if (iso === 'isolate' || (useGhostLook && ghostFade <= 0.015)) {
+          visibleSystems.add(activeSystem);
+        } else {
+          for (const sysId of availableSystems) visibleSystems.add(sysId);
+          if (useGhostLook) {
+            for (const sysId of availableSystems) {
+              if (sysId !== activeSystem) ghostedSystems.add(sysId);
+            }
+          }
+        }
       } else {
-        const solidMat = rec.mesh.userData.solidMaterial as THREE.MeshStandardMaterial;
-        solidMat.color.set(isActive ? '#d93a1e' : '#cbd5e1');
-        solidMat.emissive.set('#d93a1e');
-        solidMat.emissiveIntensity = isActive ? 0.9 : 0.08;
-        solidMat.opacity = isActive ? 0.96 : 0.48;
-        rec.mesh.material = solidMat;
-        rec.mesh.renderOrder = 2;
-        if (rec.dashedLine) rec.dashedLine.visible = false;
-        if (rec.solidAccentLine) rec.solidAccentLine.visible = false;
+        for (const sysId of availableSystems) visibleSystems.add(sysId);
       }
+
+      innerRig.setVisualState({
+        renderMode: currentRenderMode,
+        activeSystem,
+        hoveredPart,
+        selectedPart,
+        visibleSystems,
+        ghostedSystems,
+        ghostFade,
+      });
     }
 
     gsap.killTweensOf(solidXrayShellMat);
-    if (!isOutline && isXRayOn) {
+    if (!isOutline && isXRayOn && !useGhostLook) {
       solidXrayShellMat.opacity = reduceMotion ? 0.16 : 0.55;
       gsap.to(solidXrayShellMat, {
         opacity: 0.16,
@@ -859,8 +1045,6 @@ export async function loadCarFromManifest(
         ease: 'power2.out',
       });
     }
-
-    dashedLineMat.opacity = isXRayOn ? 0.78 : 0.54;
   };
 
   syncVisuals(true);
@@ -869,6 +1053,12 @@ export async function loadCarFromManifest(
     isXRayOn = enabled;
     syncVisuals(reduceMotion);
     applyHoodOffset(enabled, currentExplode, reduceMotion);
+  };
+
+  const setIsolationMode = (mode: IsolationMode, reduceMotion: boolean) => {
+    currentIsolation = mode;
+    syncVisuals(reduceMotion);
+    applyHoodOffset(isXRayOn, currentExplode, reduceMotion);
   };
 
   const setRenderMode = (
@@ -889,34 +1079,111 @@ export async function loadCarFromManifest(
     syncVisuals(true);
   };
 
+  const setPaintColor = (colorHex: string) => {
+    currentPaintColor = colorHex;
+    for (const entry of paintMaterialEntries) {
+      if (colorHex === 'original') {
+        entry.mat.color.copy(entry.factoryColor);
+      } else {
+        entry.mat.color.set(colorHex);
+      }
+      entry.mat.needsUpdate = true;
+    }
+  };
+
+  const setGraphicsQuality = (quality: GraphicsQuality) => {
+    currentQuality = quality;
+    for (const glassMat of glassMaterials) {
+      glassMat.transmission = quality === 'high' ? 0.74 : 0.45;
+      glassMat.needsUpdate = true;
+    }
+  };
+
   const setResolution = (width: number, height: number) => {
-    const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+    const cap = currentQuality === 'high' ? 2 : 1;
+    const ratio = Math.min(window.devicePixelRatio || 1, cap);
     primaryInkMat.resolution.set(width * ratio, height * ratio);
     primaryInkMat.linewidth = 1.9 * ratio;
-    dashedLineMat.resolution.set(width * ratio, height * ratio);
-    dashedLineMat.linewidth = 1.25 * ratio;
+    ghostInkMat.resolution.set(width * ratio, height * ratio);
+    ghostInkMat.linewidth = 1.4 * ratio;
     activeAccentLineMat.resolution.set(width * ratio, height * ratio);
     activeAccentLineMat.linewidth = 2.8 * ratio;
+    innerRig.setResolution(width, height);
     updateOutlineResolution(root, width, height);
+  };
+
+  const applyCurrentExplodeTransforms = () => {
+    if (hoodObj) gsap.killTweensOf(hoodObj.position);
+    if (activeSystem === null) {
+      for (const item of explodableNodes) {
+        item.obj.position
+          .copy(item.basePos)
+          .addScaledVector(item.localOffset, currentExplode);
+        if (item.obj === hoodObj && shouldLiftHood(isXRayOn)) {
+          item.obj.position.add(hoodWorldUpLocal);
+        }
+      }
+      innerRig.setExplodeForSystem(null, currentExplode, outwardNormals);
+    } else {
+      for (const item of explodableNodes) {
+        item.obj.position.copy(item.basePos);
+        if (item.obj === hoodObj && shouldLiftHood(isXRayOn)) {
+          item.obj.position.add(hoodWorldUpLocal);
+        }
+      }
+      innerRig.setExplodeForSystem(activeSystem, currentExplode, outwardNormals);
+    }
   };
 
   const setExplode = (amount: number) => {
     currentExplode = Math.max(0, Math.min(1, amount));
-    if (hoodObj) gsap.killTweensOf(hoodObj.position);
-    for (const item of explodableNodes) {
-      item.obj.position
-        .copy(item.basePos)
-        .addScaledVector(item.localOffset, currentExplode);
-      if (item.obj === hoodObj && isXRayOn) {
-        item.obj.position.add(hoodWorldUpLocal);
-      }
-    }
+    applyCurrentExplodeTransforms();
     syncVisuals(true);
   };
 
   const highlightSystem = (systemId: SystemId | null) => {
     activeSystem = systemId;
+    if (selectedPart && selectedPart.systemId !== systemId) {
+      selectedPart = null;
+    }
+    if (hoveredPart && hoveredPart.systemId !== systemId) {
+      hoveredPart = null;
+    }
+    applyCurrentExplodeTransforms();
     syncVisuals(true);
+    applyHoodOffset(isXRayOn, currentExplode, true);
+  };
+
+  const hoverPart = (systemId: SystemId | null, partId: string | null) => {
+    const next = systemId && partId ? { systemId, partId } : null;
+    if (
+      hoveredPart?.systemId === next?.systemId &&
+      hoveredPart?.partId === next?.partId
+    ) {
+      return;
+    }
+    hoveredPart = next;
+    syncVisuals(true);
+  };
+
+  const selectPart = (systemId: SystemId | null, partId: string | null) => {
+    selectedPart = systemId && partId ? { systemId, partId } : null;
+    syncVisuals(true);
+  };
+
+  const getRigPartInfo = (systemId: SystemId, partId: string) =>
+    innerRig.getPartMetadata(systemId, partId);
+
+  const getExplodedPartLabels = (systemId: SystemId) =>
+    innerRig.getExplodedPartLabels(systemId);
+
+  const getExplodeFocusSphere = (): THREE.Sphere | null => {
+    if (activeSystem !== null) {
+      return innerRig.getSystemWorldBoundingSphere(activeSystem);
+    }
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    return box.isEmpty() ? null : box.getBoundingSphere(new THREE.Sphere());
   };
 
   const getSystemFocus = (
@@ -960,11 +1227,16 @@ export async function loadCarFromManifest(
     availableSystems,
     root,
     anchors,
+    systemAnchorObjects: innerRig.systemAnchorObjects,
     outwardNormals,
     hotspotMeshes,
+    rigPickMeshes: innerRig.pickMeshes,
     setXRay,
+    setIsolationMode,
     setRenderMode,
     setLayers,
+    setPaintColor,
+    setGraphicsQuality,
     setResolution,
     setExplode,
     setTourFlow: (enabled: boolean, phase: number) => {
@@ -972,24 +1244,41 @@ export async function loadCarFromManifest(
       if (enabled) tourStream.update(phase);
     },
     highlightSystem,
+    hoverPart,
+    selectPart,
+    getRigPartInfo,
+    getExplodedPartLabels,
+    getExplodeFocusSphere,
     getSystemFocus,
     dispose: () => {
       gsap.killTweensOf(solidXrayShellMat);
       if (hoodObj) gsap.killTweensOf(hoodObj.position);
       solidXrayShellMat.dispose();
       outlineXrayShellMat.dispose();
+      outlineGhostFillMat.dispose();
+      solidGhostShellMat.dispose();
+      ghostInkMat.dispose();
       outlineBodyMat.dispose();
       outlineTrimMat.dispose();
       outlineGlassMat.dispose();
       outlineHiddenFillMat.dispose();
-      outlineActiveFillMat.dispose();
+      outlineAccentTintMat.dispose();
       silhouetteHullMat.dispose();
+      solidRimHullMat.dispose();
       primaryInkMat.dispose();
-      dashedLineMat.dispose();
       activeAccentLineMat.dispose();
+      for (const m of retiredOriginalMats) {
+        m.dispose();
+      }
       for (const rec of meshRecords) {
         rec.mesh.material = rec.originalMaterial;
+        if (Array.isArray(rec.clonedSolidMaterial)) {
+          rec.clonedSolidMaterial.forEach((m) => m.dispose());
+        } else {
+          rec.clonedSolidMaterial?.dispose();
+        }
       }
+      innerRig.dispose();
       disposeObject3D(root);
     },
   };

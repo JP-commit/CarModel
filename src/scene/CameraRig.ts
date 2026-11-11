@@ -143,6 +143,89 @@ export class CameraRig {
     this.activeTween = tl;
   }
 
+  fitBoundingSphere(
+    sphere: THREE.Sphere,
+    options: {
+      desktopRightPanel?: boolean;
+      reduceMotion?: boolean;
+      duration?: number;
+      margin?: number;
+    } = {},
+  ): void {
+    const reduce = options.reduceMotion ?? this.reduceMotion;
+    const isPortrait = this.camera.aspect < 0.95;
+    const margin = options.margin ?? (isPortrait ? 1.85 : 1.38);
+
+    const vFov = (this.camera.fov * Math.PI) / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * Math.max(this.camera.aspect, 0.35));
+    const halfFov = Math.max(0.15, Math.min(vFov, hFov) * 0.5);
+    const radius = Math.max(0.25, sphere.radius);
+    const neededDist = (radius / Math.sin(halfFov)) * margin;
+    const dist = Math.max(
+      this.controls.minDistance,
+      Math.min(this.controls.maxDistance, neededDist),
+    );
+
+    const dir = this.camera.position.clone().sub(this.controls.target);
+    if (dir.lengthSq() < 1e-4) {
+      dir.set(0.65, 0.45, 0.72);
+    }
+    dir.normalize();
+
+    const target = sphere.center.clone();
+    if (isPortrait) {
+      target.y -= Math.max(0.28, radius * 0.78);
+    } else if (options.desktopRightPanel) {
+      const forward = dir.clone().negate();
+      const camRight = new THREE.Vector3()
+        .crossVectors(forward, new THREE.Vector3(0, 1, 0))
+        .normalize();
+      target.addScaledVector(camRight, Math.min(0.42, dist * 0.14));
+    }
+
+    const cameraPos = target.clone().addScaledVector(dir, dist);
+    cameraPos.y = Math.max(0.28, cameraPos.y);
+
+    this.killTween();
+    this.setAutoRotate(false);
+
+    if (reduce) {
+      this.camera.position.copy(cameraPos);
+      this.controls.target.copy(target);
+      this.controls.update();
+      return;
+    }
+
+    const duration = options.duration ?? 0.45;
+    const tl = gsap.timeline({
+      onUpdate: () => {
+        this.controls.update();
+      },
+    });
+    tl.to(
+      this.camera.position,
+      {
+        x: cameraPos.x,
+        y: cameraPos.y,
+        z: cameraPos.z,
+        duration,
+        ease: 'power2.out',
+      },
+      0,
+    ).to(
+      this.controls.target,
+      {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        duration,
+        ease: 'power2.out',
+      },
+      0,
+    );
+    this.activeTween = tl;
+  }
+
   resetHome(reduceMotion = this.reduceMotion): void {
     this.focusAt(this.getResponsiveHomeTarget(), this.getResponsiveHomePos(), reduceMotion);
     this.setAutoRotate(true);
