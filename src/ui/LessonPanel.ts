@@ -4,6 +4,7 @@ import type { SystemLabelAnchor, SystemSimulationState } from '../models/systems
 import type { ProjectedLabelEntry } from '../scene/LabelProjector';
 import { appStore, type SystemId } from '../state/appState';
 import { renderJargonMarkup } from './JargonText';
+import { bindMobileSheetGesture, type MobileSheetBinding } from './mobileSheet';
 
 export interface LessonPanelActions {
   onBackToCar: () => void;
@@ -22,6 +23,7 @@ export interface LessonPanelHandle {
   ) => ProjectedLabelEntry[];
   setPhaseStatus: (phaseIndex?: number) => void;
   highlightPartUI: (partId: string | null) => void;
+  isMobileCollapsed: () => boolean;
   close: () => void;
 }
 
@@ -45,6 +47,7 @@ export function createLessonPanel(
   let partCalloutEls = new Map<string, HTMLButtonElement>();
   let inspectorBox: HTMLElement | null = null;
   let labelsVisible = true;
+  let sheetBinding: MobileSheetBinding | null = null;
 
   const updateInspector = (partId: string | null) => {
     if (!inspectorBox || !currentLesson) return;
@@ -92,23 +95,38 @@ export function createLessonPanel(
 
     unsubQuiz?.();
     unsubQuiz = null;
+    sheetBinding?.destroy();
+    sheetBinding = null;
     currentLesson = lesson;
     labelsVisible = true;
     panel.classList.remove('is-hidden', 'is-collapsed-mobile');
     panel.inert = false;
 
     panel.innerHTML = `
-      <div class="sheet-handle-row" id="lesson-grabber">
+      <div class="sheet-handle-row" id="lesson-grabber" title="Drag or tap to expand/collapse">
         <div class="sheet-handle" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="sheet-collapse-btn"
+          id="btn-lesson-sheet-toggle"
+          aria-expanded="true"
+        >Hide ▾</button>
       </div>
 
       <div class="lesson-back-row">
         <button type="button" class="btn" id="btn-lesson-back">← Full Car</button>
-        <span class="panel-eyebrow" style="margin:0">LESSON 0${meta.order} · ${meta.name.toUpperCase()}</span>
+        <button
+          type="button"
+          class="btn btn-accent lesson-mini-play"
+          id="btn-lesson-mini-play"
+          aria-pressed="${initialSim.playing}"
+        >${initialSim.playing ? '⏸ Pause' : '▶ Play'}</button>
+        <span class="panel-eyebrow lesson-eyebrow-text" style="margin:0">LESSON 0${meta.order} · ${meta.name.toUpperCase()}</span>
       </div>
 
-      <h2 class="panel-title" style="margin-bottom:6px">${lesson.title}</h2>
-      <p class="panel-summary" id="lesson-intro-slot"></p>
+      <div class="lesson-collapsible">
+        <h2 class="panel-title" style="margin-bottom:6px">${lesson.title}</h2>
+        <p class="panel-summary" id="lesson-intro-slot"></p>
 
       ${
         lesson.phases
@@ -202,6 +220,7 @@ export function createLessonPanel(
           Take 5-Question Quiz →
         </button>
       </div>
+      </div>
     `;
 
     // Render interactive beginner jargon tooltips in the lesson intro
@@ -244,18 +263,28 @@ export function createLessonPanel(
     panel.querySelector('#btn-lesson-back')!.addEventListener('click', actions.onBackToCar);
 
     const grabber = panel.querySelector<HTMLElement>('#lesson-grabber')!;
-    grabber.addEventListener('click', () => {
-      panel.classList.toggle('is-collapsed-mobile');
+    const toggleBtn = panel.querySelector<HTMLButtonElement>('#btn-lesson-sheet-toggle');
+    sheetBinding = bindMobileSheetGesture(panel, grabber, toggleBtn, {
+      collapsedLabel: 'Details ▴',
+      expandedLabel: 'Hide ▾',
     });
+    if (window.innerWidth <= 768) {
+      sheetBinding.setCollapsed(true);
+    }
 
     const btnPlay = panel.querySelector<HTMLButtonElement>('#btn-play-pause')!;
+    const btnMiniPlay = panel.querySelector<HTMLButtonElement>('#btn-lesson-mini-play')!;
     let isPlaying = initialSim.playing;
-    btnPlay.addEventListener('click', () => {
+    const togglePlay = () => {
       isPlaying = !isPlaying;
-      btnPlay.setAttribute('aria-pressed', String(isPlaying));
-      btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+      for (const b of [btnPlay, btnMiniPlay]) {
+        b.setAttribute('aria-pressed', String(isPlaying));
+        b.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+      }
       actions.onSimChange({ playing: isPlaying });
-    });
+    };
+    btnPlay.addEventListener('click', togglePlay);
+    btnMiniPlay.addEventListener('click', togglePlay);
 
     const speedBtns = Array.from(panel.querySelectorAll<HTMLButtonElement>('.speed-btn'));
     for (const sb of speedBtns) {
@@ -330,9 +359,12 @@ export function createLessonPanel(
   const close = () => {
     unsubQuiz?.();
     unsubQuiz = null;
+    sheetBinding?.destroy();
+    sheetBinding = null;
     currentLesson = null;
     lastPhase = -1;
     panel.classList.add('is-hidden');
+    panel.classList.remove('is-collapsed-mobile');
     panel.inert = true;
     panel.innerHTML = '';
     partChipEls.clear();
@@ -343,6 +375,7 @@ export function createLessonPanel(
     open,
     setPhaseStatus,
     highlightPartUI,
+    isMobileCollapsed: () => panel.classList.contains('is-collapsed-mobile'),
     close,
   };
 }

@@ -193,6 +193,8 @@
 }
 
 .sheet-handle-row,
+.sheet-collapse-btn,
+#lesson-side-panel .lesson-mini-play,
 .mobile-swipe-rail {
   display: none;
 }
@@ -275,7 +277,7 @@
     right: 8px;
     bottom: 8px;
     width: auto;
-    max-height: 58vh;
+    max-height: 44vh;
     padding: 6px 13px 12px;
     border-radius: var(--radius-panel);
     transform: translateY(0);
@@ -316,13 +318,60 @@
     transform: translateY(18px);
   }
 
+  #lesson-side-panel.is-collapsed-mobile {
+    max-height: 86px;
+    padding-bottom: 8px;
+    overflow: hidden;
+  }
+
+  #lesson-side-panel.is-collapsed-mobile .lesson-collapsible {
+    display: none;
+  }
+
   .sheet-handle-row {
     display: flex;
     flex-shrink: 0;
+    align-items: center;
     justify-content: center;
-    padding: 2px 0 6px;
+    position: relative;
+    min-height: 28px;
+    padding: 6px 0 8px;
     cursor: grab;
     touch-action: none;
+  }
+
+  .sheet-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 24px;
+    padding: 0 9px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--bg-panel-muted);
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #lesson-side-panel.is-collapsed-mobile .lesson-mini-play {
+    display: inline-flex;
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 0.74rem;
+  }
+
+  #lesson-side-panel.is-collapsed-mobile .lesson-back-row {
+    margin-bottom: 0;
+    gap: 8px;
+  }
+
+  #lesson-side-panel.is-collapsed-mobile .lesson-eyebrow-text {
+    display: none;
   }
 
   .sheet-handle {

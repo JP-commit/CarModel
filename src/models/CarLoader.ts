@@ -1195,8 +1195,8 @@ export async function loadCarFromManifest(
     const sysManifest = car.systems[systemId];
     const anchor = anchors[systemId] ?? getBoundingBoxApproxAnchor(systemId, finalBox, frontSign);
     const isPortrait = aspect < 0.95;
-    const distanceScale = isPortrait ? 1.82 : 1.15;
-    const mobileVerticalShift = isPortrait ? -0.44 : 0;
+    const distanceScale = isPortrait ? 1.98 : 1.15;
+    const mobileVerticalShift = isPortrait ? -0.62 : 0;
 
     const tgtOff = sysManifest?.cameraTarget ?? meta.targetOffset;
     const target = anchor

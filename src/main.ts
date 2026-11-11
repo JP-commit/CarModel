@@ -362,8 +362,8 @@ async function bootstrap(): Promise<void> {
         target.addScaledVector(camRight, 0.62);
         camPos.addScaledVector(camRight, 0.35);
       } else {
-        target.y -= 0.32;
-        camPos.multiplyScalar(1.25);
+        target.y -= lessonPanel.isMobileCollapsed() ? 0.16 : 0.65;
+        camPos.multiplyScalar(1.32);
       }
       cameraRig.focusAt(target, camPos, appStore.getSnapshot().reduceMotion);
 
@@ -948,7 +948,7 @@ async function bootstrap(): Promise<void> {
           rightPanelOpen:
             state.viewMode === 'lesson' || (state.viewMode === 'home' && state.selectedSystem !== null),
           mobileExpanded:
-            state.viewMode === 'lesson' ||
+            (state.viewMode === 'lesson' && !lessonPanel.isMobileCollapsed()) ||
             (state.viewMode === 'home' &&
               state.selectedSystem !== null &&
               !homeOverlay.isMobileCollapsed()),

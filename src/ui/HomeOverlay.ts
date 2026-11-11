@@ -11,6 +11,7 @@ import {
   type SystemId,
 } from '../state/appState';
 import { SYSTEM_ICONS } from './icons';
+import { bindMobileSheetGesture } from './mobileSheet';
 
 export interface HomeOverlayActions {
   onSelectSystem: (id: SystemId) => void;
@@ -94,6 +95,12 @@ export function createHomeOverlay(
     >
       <div class="sheet-handle-row" id="sheet-grabber" title="Drag or tap to expand/collapse">
         <div class="sheet-handle" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="sheet-collapse-btn"
+          id="btn-home-sheet-toggle"
+          aria-expanded="true"
+        >Hide ▾</button>
       </div>
 
       <div class="mobile-swipe-rail" aria-label="Vehicle systems"></div>
@@ -268,6 +275,7 @@ export function createHomeOverlay(
 
   const sidePanel = main.querySelector<HTMLElement>('#home-info-panel')!;
   const sheetGrabber = main.querySelector<HTMLElement>('#sheet-grabber')!;
+  const btnHomeSheetToggle = main.querySelector<HTMLButtonElement>('#btn-home-sheet-toggle')!;
   const panelEyebrow = main.querySelector<HTMLElement>('#panel-eyebrow')!;
   const panelTitle = main.querySelector<HTMLElement>('#panel-title')!;
   const panelSummary = main.querySelector<HTMLElement>('#panel-summary')!;
@@ -323,7 +331,7 @@ export function createHomeOverlay(
   const bindSystemNav = (btn: HTMLButtonElement, list: HTMLButtonElement[], idx: number) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.systemId as SystemId;
-      sidePanel.classList.remove('is-collapsed-mobile');
+      sheetBinding.setCollapsed(false);
       actions.onSelectSystem(id);
     });
     btn.addEventListener('keydown', (e) => {
@@ -423,25 +431,10 @@ export function createHomeOverlay(
   });
   btnTourShortcut.addEventListener('click', actions.onStartTour);
 
-  // Mobile draggable / tap bottom sheet gesture
-  let dragStartY = 0;
-  let draggingSheet = false;
-  sheetGrabber.addEventListener('pointerdown', (e) => {
-    draggingSheet = true;
-    dragStartY = e.clientY;
-    sheetGrabber.setPointerCapture(e.pointerId);
-  });
-  sheetGrabber.addEventListener('pointerup', (e) => {
-    if (!draggingSheet) return;
-    draggingSheet = false;
-    const dy = e.clientY - dragStartY;
-    if (dy > 28) {
-      sidePanel.classList.add('is-collapsed-mobile');
-    } else if (dy < -28) {
-      sidePanel.classList.remove('is-collapsed-mobile');
-    } else {
-      sidePanel.classList.toggle('is-collapsed-mobile');
-    }
+  // Mobile draggable / tap bottom sheet gesture + explicit collapse toggle
+  const sheetBinding = bindMobileSheetGesture(sidePanel, sheetGrabber, btnHomeSheetToggle, {
+    collapsedLabel: 'Details ▴',
+    expandedLabel: 'Hide ▾',
   });
 
   const syncPanelInert = () => {
@@ -614,7 +607,7 @@ export function createHomeOverlay(
       const btn = wrap.querySelector<HTMLButtonElement>('.hotspot-dot-btn')!;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        sidePanel.classList.remove('is-collapsed-mobile');
+        sheetBinding.setCollapsed(false);
         actions.onSelectSystem(sys.id);
       });
 
@@ -695,6 +688,7 @@ export function createHomeOverlay(
     },
     destroy: () => {
       window.removeEventListener('resize', syncPanelInert);
+      sheetBinding.destroy();
       unsubscribe();
       loaderBanner.remove();
       main.remove();

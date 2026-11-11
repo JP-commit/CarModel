@@ -46,7 +46,7 @@ export class LabelProjector {
     const maxX = isMobile ? width - 24 : width - 28;
     const minY = isMobile ? 88 : 74;
     const maxY = isMobile
-      ? height * (bounds.mobileExpanded ? 0.45 : 0.82)
+      ? height * (bounds.mobileExpanded ? 0.52 : 0.84)
       : height - 68;
 
     const panelLeftEdge = !isMobile && bounds.rightPanelOpen ? width - 388 : width;
