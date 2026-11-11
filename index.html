@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HowCarsWork — Interactive 3D Car Explorer</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23D93A1E'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <meta
+      name="description"
+      content="Explore how a car works in interactive 3D: engine cycles, transmission, brakes, suspension, steering, electrical, cooling, exhaust, and EV drivetrains."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(circle at 50% 44%, #ffffff 0%, #f6f6f3 58%, #edede9 100%);
+        color: #1c1b19;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow: hidden;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-ui">Skip to interactive controls</a>
+    <div id="app">
+      <div id="canvas-stage" aria-label="Interactive 3D vehicle viewport" role="region">
+        <canvas
+          id="webgl-canvas"
+          tabindex="0"
+          aria-label="3D car model. Drag or use arrow keys to rotate, scroll or press plus and minus to zoom."
+        ></canvas>
+        <div id="label-layer" aria-hidden="false"></div>
+      </div>
+      <div id="ui-root"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
