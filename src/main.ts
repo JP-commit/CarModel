@@ -40,6 +40,7 @@ import { EngineAudioSynth } from './audio/engineSynth';
 import { createCarPicker, createModelErrorCard } from './ui/CarPicker';
 import { createCompareOverlay } from './ui/CompareOverlay';
 import { createCreditsModal } from './ui/CreditsModal';
+import { createFeedbackModal, type FeedbackModalContext } from './ui/FeedbackModal';
 import { createGlossaryDrawer } from './ui/GlossaryDrawer';
 import { createHeaderBar } from './ui/HeaderBar';
 import { createHomeOverlay } from './ui/HomeOverlay';
@@ -123,6 +124,7 @@ async function bootstrap(): Promise<void> {
   const quizModal = createQuizModal(uiRoot);
   const glossaryDrawer = createGlossaryDrawer(uiRoot);
   const creditsModal = createCreditsModal(uiRoot, []);
+  const feedbackModal = createFeedbackModal(uiRoot);
   const errorCard = createModelErrorCard(uiRoot);
   const engineAudio = new EngineAudioSynth();
   const crossSection = new CrossSectionController();
@@ -145,6 +147,25 @@ async function bootstrap(): Promise<void> {
     window.setTimeout(() => {
       shareToast.hidden = true;
     }, 2400);
+  };
+
+  const buildCurrentFeedbackContext = (): FeedbackModalContext => {
+    const snap = appStore.getSnapshot();
+    const car =
+      carsManifest.find((c) => c.id === snap.selectedCarId) ?? carRig?.car ?? null;
+    return {
+      carName: car?.name,
+      powertrain: snap.activePowertrain,
+      systemName: snap.activeLesson ? getSystemMetadata(snap.activeLesson).name : undefined,
+      variantName: snap.activeLesson ? getActiveSystemVariant(snap, snap.activeLesson) : undefined,
+      renderMode: snap.renderMode,
+      pageUrl: window.location.href,
+    };
+  };
+
+  const openFeedback = () => {
+    if (feedbackModal.isOpen()) feedbackModal.close();
+    else feedbackModal.open(buildCurrentFeedbackContext());
   };
 
   const learningLab = createLearningLabModal(uiRoot, {
@@ -490,6 +511,9 @@ async function bootstrap(): Promise<void> {
     onOpenGlossary: (termId) => {
       glossaryDrawer.open(termId);
     },
+    onOpenFeedback: () => {
+      openFeedback();
+    },
   });
 
   const tourOverlay = createTourOverlay(uiRoot, {
@@ -803,6 +827,9 @@ async function bootstrap(): Promise<void> {
     onOpenCredits: () => {
       if (creditsModal.isOpen()) creditsModal.close();
       else creditsModal.open();
+    },
+    onOpenFeedback: () => {
+      openFeedback();
     },
     getSelectedPartInfo: (systemId, partId) => carRig?.getRigPartInfo(systemId, partId) ?? null,
     getSystemBayWarning: (systemId) => carRig?.getSystemBayWarning(systemId),

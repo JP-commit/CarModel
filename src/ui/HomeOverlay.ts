@@ -31,6 +31,7 @@ export interface HomeOverlayActions {
   onDismissHint: () => void;
   onChangePaintColor: (colorHex: string) => void;
   onOpenCredits: () => void;
+  onOpenFeedback?: () => void;
   getSelectedPartInfo?: (systemId: SystemId, partId: string) => RigPartMetadata | null;
   getSystemBayWarning?: (systemId: SystemId) => string | undefined;
   onClearSelectedPart?: () => void;
@@ -239,14 +240,24 @@ export function createHomeOverlay(
       </div>
     </div>
 
-    <!-- Visible open-license credits link -->
-    <button type="button" class="credits-trigger-btn" id="btn-credits" aria-label="Open 3D model credits and licenses">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <circle cx="12" cy="12" r="9.5" />
-        <path d="M12 16v-4M12 8h.01" stroke-linecap="round" />
-      </svg>
-      <span>Credits</span>
-    </button>
+    <!-- Visible open-license credits & feedback links -->
+    <div class="footer-meta-actions" role="group" aria-label="Credits and Feedback">
+      <button type="button" class="credits-trigger-btn" id="btn-credits" aria-label="Open 3D model credits and licenses">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9.5" />
+          <path d="M12 16v-4M12 8h.01" stroke-linecap="round" />
+        </svg>
+        <span>Credits</span>
+      </button>
+
+      <button type="button" class="credits-trigger-btn feedback-trigger-btn" id="btn-feedback" aria-label="Suggest a feature or send feedback">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
+          <path d="M9 21h6" stroke-linecap="round" />
+        </svg>
+        <span>💡 Feedback</span>
+      </button>
+    </div>
 
     <!-- Full-car exploded bar when no system is selected -->
     <div class="fullcar-explode-bar" id="fullcar-explode-bar" role="region" aria-label="Full car exploded view">
@@ -321,8 +332,12 @@ export function createHomeOverlay(
   const paintPickerBar = main.querySelector<HTMLElement>('#paint-picker-bar')!;
   const paintSwatchBtns = Array.from(main.querySelectorAll<HTMLButtonElement>('.paint-swatch'));
   const btnCredits = main.querySelector<HTMLButtonElement>('#btn-credits')!;
+  const btnFeedback = main.querySelector<HTMLButtonElement>('#btn-feedback');
 
   btnCredits.addEventListener('click', actions.onOpenCredits);
+  btnFeedback?.addEventListener('click', () => {
+    actions.onOpenFeedback?.();
+  });
   for (const btn of paintSwatchBtns) {
     btn.addEventListener('click', () => {
       const hex = btn.dataset.paintColor;

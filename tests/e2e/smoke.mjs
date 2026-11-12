@@ -203,6 +203,21 @@ try {
     path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/rotary_outline.png',
   });
 
+  // 6e. Feedback & Feature Suggestion Modal check
+  await page.waitForSelector('#btn-lesson-feedback');
+  await page.click('#btn-lesson-feedback');
+  await page.waitForSelector('#feedback-modal-card');
+  await page.click('.feedback-cat-btn[data-cat-id="car-engine"]');
+  await page.locator('#feedback-summary-input').fill('Add Porsche flat-six boxer engine');
+  await page.locator('#feedback-details-input').fill('A rear-mounted twin-turbo flat-six with opposed horizontal pistons would be awesome.');
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/feedback_modal.png',
+  });
+  await page.click('#btn-feedback-copy');
+  await page.waitForFunction(() => document.querySelector('#btn-feedback-copy')?.textContent?.includes('Copied'));
+  await page.click('#btn-feedback-close');
+  await page.waitForSelector('#feedback-modal-backdrop.is-hidden');
+
   // 7. Mobile viewport check (dropdown variant selector visible)
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('http://localhost:4179/?car=sedan', { waitUntil: 'networkidle' });

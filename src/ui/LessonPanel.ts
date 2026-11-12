@@ -32,6 +32,7 @@ export interface LessonPanelActions {
   onToggleLabels: (visible: boolean) => void;
   onOpenQuiz: (systemId: SystemId) => void;
   onOpenGlossary: (termId?: string) => void;
+  onOpenFeedback?: () => void;
 }
 
 export interface LessonPanelHandle {
@@ -338,9 +339,12 @@ export function createLessonPanel(
 
       <div class="part-inspector-card" id="lesson-inspector"></div>
 
-      <div class="cta-row" style="margin-top:4px">
-        <button type="button" class="btn btn-accent" id="btn-lesson-quiz">
+      <div class="cta-row" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn btn-accent" id="btn-lesson-quiz" style="flex:1;min-width:180px">
           Take 5-Question Quiz →
+        </button>
+        <button type="button" class="btn btn-subtle" id="btn-lesson-feedback" style="font-size:0.75rem;padding:0 10px;height:38px">
+          💡 Suggest Feature
         </button>
       </div>
       </div>
@@ -370,6 +374,9 @@ export function createLessonPanel(
     };
     syncQuizBtn();
     quizBtn.addEventListener('click', () => actions.onOpenQuiz(systemId));
+    panel.querySelector('#btn-lesson-feedback')?.addEventListener('click', () => {
+      actions.onOpenFeedback?.();
+    });
     unsubQuiz = appStore.subscribe((nextSnap) => {
       if (currentLesson?.id === systemId) {
         syncQuizBtn();

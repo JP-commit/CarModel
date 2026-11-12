@@ -15,6 +15,10 @@ import {
   computeEngineStats,
   ENGINE_PRESETS,
 } from '../../src/models/systems/engines/specs';
+import {
+  buildFeedbackMailto,
+  FEEDBACK_RECIPIENT_EMAIL,
+} from '../../src/ui/FeedbackModal';
 import { solveCvtBeltRadii } from '../../src/models/systems/transmissions/cvt';
 import {
   computeWankelApexPosition,
@@ -192,5 +196,30 @@ describe('Manifest Defaults, Allowlists & Quiz Variants', () => {
         expect(pt.y).toBeCloseTo(expectedY, 6);
       }
     }
+  });
+
+  it('builds pre-filled mailto URLs and clipboard text with viewing context', () => {
+    const res = buildFeedbackMailto({
+      category: 'feature',
+      summary: 'Add turbocharger spool sound & gauge',
+      details: 'Would love an interactive boost gauge in the engine view!',
+      includeContext: true,
+      context: {
+        carName: 'Sports Coupe',
+        powertrain: 'petrol',
+        systemName: 'Engine',
+        variantName: 'v8',
+        renderMode: 'solid',
+        pageUrl: 'http://localhost:4173/?car=coupe&engine=v8',
+      },
+    });
+
+    expect(res.recipient).toBe(FEEDBACK_RECIPIENT_EMAIL);
+    expect(res.subject).toContain('[HowCarsWork - Feature Suggestion] Add turbocharger spool sound & gauge');
+    expect(res.body).toContain('Would love an interactive boost gauge');
+    expect(res.body).toContain('Car: Sports Coupe');
+    expect(res.body).toContain('System: Engine (v8)');
+    expect(res.mailtoUrl).toMatch(/^mailto:jayaprakashjp3232%40gmail\.com\?subject=/);
+    expect(res.clipboardText).toContain('To: jayaprakashjp3232@gmail.com');
   });
 });
