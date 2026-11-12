@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Powertrain } from '../../state/appState';
 import { disposeObject3D } from '../../scene/SceneManager';
 import {
   applyExplodeOffsets,
@@ -14,7 +15,11 @@ import type {
   SystemSimulationState,
 } from './types';
 
-export function createSystemModel(): SystemModelInstance {
+export function createSystemModel(
+  _powertrain: Powertrain = 'petrol',
+  variant?: string,
+): SystemModelInstance {
+  const isDualBank = Boolean(variant && /^(v6|v8|v10|v12|flat-4|flat-6)/.test(variant));
   const root = new THREE.Group();
   root.name = 'CoolingCutaway';
 
@@ -39,8 +44,13 @@ export function createSystemModel(): SystemModelInstance {
   const blockShell = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.74, 0.5), blockMat);
   blockShell.position.set(-0.95, 0.18, 0);
   const coreSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.6, 22), metalMat);
-  coreSleeve.position.set(-0.95, 0.18, 0);
+  coreSleeve.position.set(-0.95, 0.18, isDualBank ? -0.14 : 0);
   jacketGroup.add(blockShell, coreSleeve);
+  if (isDualBank) {
+    const bank2Sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.56, 20), metalMat);
+    bank2Sleeve.position.set(-0.95, 0.18, 0.16);
+    jacketGroup.add(bank2Sleeve);
+  }
 
   // 2. Water Pump + Spinning Impeller Blades (InstancedMesh)
   const pumpHousing = new THREE.Mesh(

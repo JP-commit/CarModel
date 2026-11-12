@@ -60,7 +60,15 @@ export function createSystemModel(): SystemModelInstance {
   colShaft.rotation.x = -0.58;
   const uJoint = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 14), darkMat);
   uJoint.position.set(0, 0.44, -0.02);
-  columnGroup.add(colShaft, uJoint);
+  // EPS Electric Power Steering assist motor vs Hydraulic pump toggle
+  const epsMotor = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.16, 18), accentMat);
+  epsMotor.rotation.z = Math.PI / 2;
+  epsMotor.position.set(0.14, 0.58, 0.08);
+  const hydPump = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.18, 16), steelMat);
+  hydPump.rotation.x = Math.PI / 2;
+  hydPump.position.set(-0.22, 0.18, -0.14);
+  hydPump.visible = false;
+  columnGroup.add(colShaft, uJoint, epsMotor, hydPump);
 
   // 3. Pinion Gear (12 teeth meshing at top of steering rack)
   const pinionSpin = new THREE.Group();
@@ -164,6 +172,10 @@ export function createSystemModel(): SystemModelInstance {
       if (sim.playing) {
         elapsed += dt * sim.speed * motionFactor;
       }
+      const isHyd = sim.steeringType === 'hydraulic';
+      epsMotor.visible = !isHyd;
+      hydPump.visible = isHyd;
+
       const sweep = Math.sin(elapsed * 1.45); // -1 .. +1
       const steerAngle = sweep * 1.25;
 
@@ -176,9 +188,10 @@ export function createSystemModel(): SystemModelInstance {
       tieRodL.position.set(-0.92 + rackShift * 0.5, 0.08, 0.04);
       tieRodR.position.set(0.92 + rackShift * 0.5, 0.08, 0.04);
 
-      const wheelTurn = -sweep * 0.42;
-      wheelL.rotation.y = wheelTurn;
-      wheelR.rotation.y = wheelTurn;
+      // True Ackermann geometry: inner turning wheel steers slightly sharper than outer wheel
+      const baseTurn = -sweep * 0.42;
+      wheelL.rotation.y = baseTurn > 0 ? baseTurn * 1.15 : baseTurn * 0.86;
+      wheelR.rotation.y = baseTurn < 0 ? baseTurn * 1.15 : baseTurn * 0.86;
 
       const norm = ((elapsed * 1.45) % (Math.PI * 2)) / (Math.PI * 2);
       const stage = norm < 0.18 ? 0 : norm < 0.5 ? 1 : norm < 0.68 ? 2 : 3;

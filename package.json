@@ -9,6 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node tests/e2e/smoke.mjs",
     "import-car": "node scripts/import-car.mjs"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "playwright-core": "^1.65.0",
     "sharp": "^0.35.5",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }

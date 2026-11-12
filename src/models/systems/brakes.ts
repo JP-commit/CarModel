@@ -56,10 +56,13 @@ export function createSystemModel(): SystemModelInstance {
   mcBody.position.set(-0.92, 0.16, 0);
   const reservoir = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.16), darkMetalMat);
   reservoir.position.set(-0.92, 0.34, 0);
+  const vacuumBooster = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.14, 24), darkMetalMat);
+  vacuumBooster.rotation.z = Math.PI / 2;
+  vacuumBooster.position.set(-1.22, 0.16, 0);
   const mcPiston = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 16), metalMat);
   mcPiston.rotation.z = Math.PI / 2;
   mcPiston.position.set(-1.14, 0.16, 0);
-  masterGroup.add(mcBody, reservoir, mcPiston);
+  masterGroup.add(mcBody, reservoir, vacuumBooster, mcPiston);
 
   // 2. Hydraulic Brake Lines + Flowing Fluid Particles
   const lineCurve = new THREE.CatmullRomCurve3([
@@ -84,7 +87,38 @@ export function createSystemModel(): SystemModelInstance {
   rotorRing.rotation.x = Math.PI / 2;
   const hubBell = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.14, 24), darkMetalMat);
   hubBell.rotation.x = Math.PI / 2;
-  rotorSpin.add(rotorRing, hubBell);
+  // ABS wheel-speed toothed tone ring + sensor
+  const absRing = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.018, 8, 24), metalMat);
+  absRing.position.z = -0.06;
+  rotorSpin.add(rotorRing, hubBell, absRing);
+
+  // Optional Drum Brake cutaway assembly (shown when sim.brakeType === 'drum')
+  const drumShell = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.58, 0.58, 0.24, 32, 1, true, Math.PI * 0.35, Math.PI * 1.3),
+    darkMetalMat,
+  );
+  drumShell.rotation.x = Math.PI / 2;
+  drumShell.visible = false;
+  rotorSpin.add(drumShell);
+
+  const drumShoesGroup = new THREE.Group();
+  drumShoesGroup.position.set(0.68, 0, 0);
+  const shoeTop = new THREE.Mesh(
+    new THREE.TorusGeometry(0.46, 0.055, 8, 24, Math.PI * 0.72),
+    padMat,
+  );
+  shoeTop.rotation.z = Math.PI * 0.14;
+  const shoeBot = new THREE.Mesh(
+    new THREE.TorusGeometry(0.46, 0.055, 8, 24, Math.PI * 0.72),
+    padMat,
+  );
+  shoeBot.rotation.z = Math.PI * 1.14;
+  const wheelCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 14), metalMat);
+  wheelCyl.rotation.z = Math.PI / 2;
+  wheelCyl.position.y = 0.44;
+  drumShoesGroup.add(shoeTop, shoeBot, wheelCyl);
+  drumShoesGroup.visible = false;
+  padsGroup.add(drumShoesGroup);
 
   const holeGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.085, 8);
   holeGeo.rotateX(Math.PI / 2);
@@ -147,6 +181,7 @@ export function createSystemModel(): SystemModelInstance {
 
   let elapsed = 0;
   let fluidPhase = 0;
+  let brakeTempC = 65;
 
   return {
     root,
@@ -159,43 +194,60 @@ export function createSystemModel(): SystemModelInstance {
     explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
+      const isDrum = sim.brakeType === 'drum';
+      rotorRing.visible = !isDrum;
+      holes.visible = !isDrum;
+      caliperGroup.visible = !isDrum;
+      padFront.visible = !isDrum;
+      padBack.visible = !isDrum;
+      drumShell.visible = isDrum;
+      drumShoesGroup.visible = isDrum;
+
       if (sim.playing) {
         elapsed += dt * sim.speed * motionFactor;
       }
       const cycle = (elapsed % 6) / 6; // 0..1
       const stage = Math.min(3, Math.floor(cycle * 4));
-      // Smooth clamping pressure curve: peaks during stage 2 (0.45..0.75)
-      const clampAmount = Math.max(0, Math.sin(Math.max(0, (cycle - 0.2) / 0.65) * Math.PI));
+      const baseClamp = Math.max(0, Math.sin(Math.max(0, (cycle - 0.2) / 0.65) * Math.PI));
+      const clampAmount = sim.brake !== undefined && sim.brake > 0.02 ? sim.brake : baseClamp;
+
+      // Fault simulation: air in brake lines makes pedal sink with weak pad clamping
+      const effectiveClamp = sim.faultId === 'brake-air' ? clampAmount * 0.28 : clampAmount;
+      const targetTemp = 65 + effectiveClamp * (isDrum ? 380 : 460);
+      brakeTempC += (targetTemp - brakeTempC) * Math.min(1, dt * 1.6);
 
       // Disc spins fast when coasting, slows cleanly during clamp
-      const discSpinSpeed = 3.8 * (1 - clampAmount * 0.86);
+      const discSpinSpeed = 3.8 * (1 - effectiveClamp * 0.86);
       if (sim.playing) {
         rotorSpin.rotation.z -= dt * sim.speed * motionFactor * discSpinSpeed;
         fluidPhase += dt * sim.speed * motionFactor * (0.2 + clampAmount * 1.4);
       }
 
-      pedalPivot.rotation.z = -clampAmount * 0.28;
+      pedalPivot.rotation.z = -(sim.faultId === 'brake-air' ? clampAmount * 0.48 : clampAmount * 0.28);
       mcPiston.position.x = -1.14 + clampAmount * 0.14;
 
-      const padGap = 0.088 - clampAmount * 0.032;
+      const padGap = 0.088 - effectiveClamp * 0.032;
       padFront.position.z = padGap;
       padBack.position.z = -padGap;
       pistonF.position.z = padGap + 0.045;
       pistonB.position.z = -(padGap + 0.045);
 
+      shoeTop.position.y = effectiveClamp * 0.035;
+      shoeBot.position.y = -effectiveClamp * 0.035;
+
       fluidStream.update(fluidPhase);
-      // Warm friction heat glow on disc when clamped
+      const heatGlow = Math.max(0, (brakeTempC - 90) / 430) * 0.72;
       rotorSpin.traverse((obj) => {
         const m = (obj as THREE.Mesh).material;
         if (m instanceof THREE.MeshStandardMaterial && m !== holeMat && m !== darkMetalMat) {
-          if (m.emissiveIntensity < 0.45) {
+          if (m.emissiveIntensity < 0.75) {
             m.emissive.set('#f05a28');
-            m.emissiveIntensity = clampAmount * 0.38;
+            m.emissiveIntensity = heatGlow;
           }
         }
       });
 
-      return { phaseIndex: stage };
+      return { phaseIndex: stage, brakeTempC: Math.round(brakeTempC) };
     },
     highlightPart: partCtrl.highlightPart,
     setExplode: (amount: number) => applyExplodeOffsets(explodables, Math.max(0, Math.min(1, amount))),

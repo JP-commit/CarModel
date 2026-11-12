@@ -7,8 +7,8 @@ import type { RenderMode } from '../../state/appState';
 
 export interface RigPartVisualRecord {
   partId: string;
-  dashedLine: LineSegments2 | null;
-  solidLine: LineSegments2 | null;
+  dashedLines: LineSegments2[];
+  solidLines: LineSegments2[];
   meshes: RigMeshStyleRecord[];
 }
 
@@ -222,83 +222,67 @@ export function createRigHighlightPalette(drawBufSize: THREE.Vector2): RigHighli
 }
 
 export function createCombinedPartEdgeLines(
-  partObj: THREE.Object3D,
+  _partObj: THREE.Object3D,
   partMeshes: THREE.Mesh[],
   palette: RigHighlightPalette,
   sharedEdgesCache: Map<THREE.BufferGeometry, Float32Array | null>,
 ): {
-  lineGeo: LineSegmentsGeometry | null;
-  dashedLine: LineSegments2 | null;
-  solidLine: LineSegments2 | null;
+  lineGeos: LineSegmentsGeometry[];
+  dashedLines: LineSegments2[];
+  solidLines: LineSegments2[];
 } {
-  partObj.updateMatrixWorld(true);
-  const partInv = new THREE.Matrix4().copy(partObj.matrixWorld).invert();
-  const relMatrix = new THREE.Matrix4();
-  const tempVec = new THREE.Vector3();
-  const chunks: Float32Array[] = [];
-  let totalFloats = 0;
+  const geoToLineGeo = new Map<THREE.BufferGeometry, LineSegmentsGeometry>();
+  const lineGeos: LineSegmentsGeometry[] = [];
+  const dashedLines: LineSegments2[] = [];
+  const solidLines: LineSegments2[] = [];
 
   for (const mesh of partMeshes) {
     if (!mesh.geometry || !mesh.geometry.attributes.position || mesh.userData.skipRigEdges) {
       continue;
     }
 
-    let cachedPos = sharedEdgesCache.get(mesh.geometry);
-    if (cachedPos === undefined) {
-      const edges = new THREE.EdgesGeometry(mesh.geometry, 36);
-      const attr = edges.attributes.position;
-      if (attr && attr.count >= 2) {
-        cachedPos = new Float32Array(attr.array as ArrayLike<number>);
-      } else {
-        cachedPos = null;
+    let lineGeo = geoToLineGeo.get(mesh.geometry);
+    if (!lineGeo) {
+      let cachedPos = sharedEdgesCache.get(mesh.geometry);
+      if (cachedPos === undefined) {
+        const edges = new THREE.EdgesGeometry(mesh.geometry, 36);
+        const attr = edges.attributes.position;
+        if (attr && attr.count >= 2) {
+          cachedPos = new Float32Array(attr.array as ArrayLike<number>);
+        } else {
+          cachedPos = null;
+        }
+        edges.dispose();
+        sharedEdgesCache.set(mesh.geometry, cachedPos);
       }
-      edges.dispose();
-      sharedEdgesCache.set(mesh.geometry, cachedPos);
+
+      if (!cachedPos || cachedPos.length < 6) continue;
+
+      lineGeo = new LineSegmentsGeometry();
+      lineGeo.setPositions(cachedPos);
+      geoToLineGeo.set(mesh.geometry, lineGeo);
+      lineGeos.push(lineGeo);
     }
 
-    if (!cachedPos || cachedPos.length < 6) continue;
+    // Attach edges directly onto each mesh so animated child parts transform in lockstep
+    const dashedLine = new LineSegments2(lineGeo, palette.dashedMat);
+    dashedLine.userData.isOutlineChild = true;
+    dashedLine.userData.isRigHelper = true;
+    dashedLine.renderOrder = 6;
+    dashedLine.computeLineDistances();
+    mesh.add(dashedLine);
+    dashedLines.push(dashedLine);
 
-    relMatrix.multiplyMatrices(partInv, mesh.matrixWorld);
-    const transformed = new Float32Array(cachedPos.length);
-    for (let i = 0; i < cachedPos.length; i += 3) {
-      tempVec.set(cachedPos[i], cachedPos[i + 1], cachedPos[i + 2]).applyMatrix4(relMatrix);
-      transformed[i] = tempVec.x;
-      transformed[i + 1] = tempVec.y;
-      transformed[i + 2] = tempVec.z;
-    }
-    chunks.push(transformed);
-    totalFloats += transformed.length;
+    const solidLine = new LineSegments2(lineGeo, palette.activeEdgeMat);
+    solidLine.userData.isOutlineChild = true;
+    solidLine.userData.isRigHelper = true;
+    solidLine.renderOrder = 8;
+    solidLine.visible = false;
+    mesh.add(solidLine);
+    solidLines.push(solidLine);
   }
 
-  if (totalFloats < 6) {
-    return { lineGeo: null, dashedLine: null, solidLine: null };
-  }
-
-  const merged = new Float32Array(totalFloats);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  const lineGeo = new LineSegmentsGeometry();
-  lineGeo.setPositions(merged);
-
-  const dashedLine = new LineSegments2(lineGeo, palette.dashedMat);
-  dashedLine.userData.isOutlineChild = true;
-  dashedLine.userData.isRigHelper = true;
-  dashedLine.renderOrder = 6;
-  dashedLine.computeLineDistances();
-  partObj.add(dashedLine);
-
-  const solidLine = new LineSegments2(lineGeo, palette.activeEdgeMat);
-  solidLine.userData.isOutlineChild = true;
-  solidLine.userData.isRigHelper = true;
-  solidLine.renderOrder = 8;
-  solidLine.visible = false;
-  partObj.add(solidLine);
-
-  return { lineGeo, dashedLine, solidLine };
+  return { lineGeos, dashedLines, solidLines };
 }
 
 export function decorateRigMesh(
@@ -358,8 +342,8 @@ export function applyRigPartHighlightState(
   const { renderMode, isSelectedSystem, hoveredPartId, selectedPartId, visible, ghosted } = opts;
 
   if (!visible) {
-    if (partRec.dashedLine) partRec.dashedLine.visible = false;
-    if (partRec.solidLine) partRec.solidLine.visible = false;
+    for (const l of partRec.dashedLines) l.visible = false;
+    for (const l of partRec.solidLines) l.visible = false;
     for (const rec of partRec.meshes) rec.mesh.visible = false;
     return;
   }
@@ -371,20 +355,22 @@ export function applyRigPartHighlightState(
 
   if (renderMode === 'outline') {
     if (isSelectedSystem) {
-      if (partRec.dashedLine) partRec.dashedLine.visible = false;
-      if (partRec.solidLine) {
-        partRec.solidLine.visible = true;
-        partRec.solidLine.material = isSelectedPart
-          ? palette.focusedPartEdgeMat
-          : isHoveredPart
-            ? palette.hoveredPartEdgeMat
-            : palette.activeEdgeMat;
+      for (const l of partRec.dashedLines) l.visible = false;
+      const targetMat = isSelectedPart
+        ? palette.focusedPartEdgeMat
+        : isHoveredPart
+          ? palette.hoveredPartEdgeMat
+          : palette.activeEdgeMat;
+      for (const l of partRec.solidLines) {
+        l.visible = true;
+        l.material = targetMat;
       }
     } else {
-      if (partRec.solidLine) partRec.solidLine.visible = false;
-      if (partRec.dashedLine) {
-        partRec.dashedLine.visible = true;
-        partRec.dashedLine.material = ghosted ? palette.dashedGhostMat : palette.dashedMat;
+      for (const l of partRec.solidLines) l.visible = false;
+      const targetMat = ghosted ? palette.dashedGhostMat : palette.dashedMat;
+      for (const l of partRec.dashedLines) {
+        l.visible = true;
+        l.material = targetMat;
       }
     }
 
@@ -411,8 +397,8 @@ export function applyRigPartHighlightState(
   }
 
   // SOLID MODE
-  if (partRec.dashedLine) partRec.dashedLine.visible = false;
-  if (partRec.solidLine) partRec.solidLine.visible = false;
+  for (const l of partRec.dashedLines) l.visible = false;
+  for (const l of partRec.solidLines) l.visible = false;
 
   for (const rec of partRec.meshes) {
     rec.mesh.visible = true;

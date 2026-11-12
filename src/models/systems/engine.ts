@@ -48,7 +48,10 @@ function createCamLobeGeometry(baseR = 0.075, noseLift = 0.068, thickness = 0.08
   return geo;
 }
 
-export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemModelInstance {
+export function createSystemModel(
+  powertrain: Powertrain = 'petrol',
+  _variant = 'single-cylinder',
+): SystemModelInstance {
   const isDiesel = powertrain === 'diesel';
   const root = new THREE.Group();
   root.name = 'EngineLessonCutaway';
@@ -630,15 +633,18 @@ export function createSystemModel(powertrain: Powertrain = 'petrol'): SystemMode
     labelAnchors,
     explodables,
     update: (dt: number, sim: SystemSimulationState): SystemFrameStatus => {
+      const rpmScale = sim.rpmOverride ? sim.rpmOverride / 1800 : sim.speed;
       if (sim.playing) {
         const motionFactor = sim.reduceMotion ? 0.35 : 1;
-        cycleAngle += dt * 3.1 * sim.speed * motionFactor;
+        cycleAngle += dt * 3.1 * rpmScale * motionFactor;
       }
       const phaseIndex = updateKinematics(cycleAngle, sim.explode, dt);
       const phases = ['1. Intake', '2. Compression', '3. Power', '4. Exhaust'];
       return {
         phaseIndex,
         statusText: phases[phaseIndex],
+        firingCylinder: 1,
+        rpm: sim.rpmOverride ?? Math.round(900 + sim.speed * 1400),
       };
     },
     highlightPart,

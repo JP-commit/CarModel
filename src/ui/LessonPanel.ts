@@ -1,15 +1,32 @@
+import type { CarManifestEntry } from '../data/cars';
 import { getSystemLesson, type SystemLessonData } from '../data/lessons';
 import { getSystemMetadata } from '../data/systems';
-import type { SystemLabelAnchor, SystemSimulationState } from '../models/systems/types';
+import type {
+  SystemFrameStatus,
+  SystemLabelAnchor,
+  SystemSimulationState,
+} from '../models/systems/types';
 import type { ProjectedLabelEntry } from '../scene/LabelProjector';
-import { appStore, type SystemId } from '../state/appState';
+import {
+  appStore,
+  getActiveSystemVariant,
+  getSavedQuizScore,
+  type ClipAxis,
+  type SystemId,
+} from '../state/appState';
+import { renderEngineStatsWidget, type EngineStatsPanelHandle } from './EngineStatsPanel';
+import { renderExtendedSubTabs, type ExtendedSubTabsHandle } from './ExtendedSubTabs';
 import { renderJargonMarkup } from './JargonText';
 import { bindMobileSheetGesture, type MobileSheetBinding } from './mobileSheet';
+import { bindVariantPickerEvents, renderVariantPickerMarkup } from './variantPicker';
 
 export interface LessonPanelActions {
   onBackToCar: () => void;
   onSelectPart: (partId: string | null) => void;
   onSimChange: (patch: Partial<SystemSimulationState>) => void;
+  onChangeVariant?: (systemId: SystemId, variant: string) => void;
+  onChangeClip?: (axis: ClipAxis, ratio: number) => void;
+  onToggleRuler?: (active: boolean) => void;
   onToggleLabels: (visible: boolean) => void;
   onOpenQuiz: (systemId: SystemId) => void;
   onOpenGlossary: (termId?: string) => void;
@@ -20,8 +37,11 @@ export interface LessonPanelHandle {
     systemId: SystemId,
     initialSim: SystemSimulationState,
     labelAnchors: SystemLabelAnchor[],
+    car?: CarManifestEntry | null,
+    preserveMobileState?: boolean,
   ) => ProjectedLabelEntry[];
-  setPhaseStatus: (phaseIndex?: number) => void;
+  setPhaseStatus: (status?: number | SystemFrameStatus) => void;
+  setRulerStatus: (text: string | null) => void;
   highlightPartUI: (partId: string | null) => void;
   isMobileCollapsed: () => boolean;
   close: () => void;
@@ -83,24 +103,38 @@ export function createLessonPanel(
     updateInspector(partId);
   };
 
+  let telemetryBox: HTMLElement | null = null;
+  let engineStatsHandle: EngineStatsPanelHandle | null = null;
+  let extendedSubHandle: ExtendedSubTabsHandle | null = null;
+  let lastPhase = -1;
+
   const open = (
     systemId: SystemId,
     initialSim: SystemSimulationState,
     labelAnchors: SystemLabelAnchor[],
+    car?: CarManifestEntry | null,
+    preserveMobileState = false,
   ): ProjectedLabelEntry[] => {
-    const powertrain = appStore.getSnapshot().activePowertrain;
-    const lesson = getSystemLesson(systemId, powertrain);
-    const meta = getSystemMetadata(systemId, powertrain);
+    const snap = appStore.getSnapshot();
+    const powertrain = snap.activePowertrain;
+    const variant = getActiveSystemVariant(snap, systemId);
+    const lesson = getSystemLesson(systemId, powertrain, variant);
+    const meta = getSystemMetadata(systemId, powertrain, variant);
     if (!lesson) return [];
+
+    const wasMobileCollapsed = preserveMobileState && panel.classList.contains('is-collapsed-mobile');
 
     unsubQuiz?.();
     unsubQuiz = null;
     sheetBinding?.destroy();
     sheetBinding = null;
     currentLesson = lesson;
+    lastPhase = -1;
     labelsVisible = true;
     panel.classList.remove('is-hidden', 'is-collapsed-mobile');
     panel.inert = false;
+
+    const variantMarkup = renderVariantPickerMarkup('lesson', systemId, car);
 
     panel.innerHTML = `
       <div class="sheet-handle-row" id="lesson-grabber" title="Drag or tap to expand/collapse">
@@ -124,9 +158,15 @@ export function createLessonPanel(
         <span class="panel-eyebrow lesson-eyebrow-text" style="margin:0">LESSON 0${meta.order} · ${meta.name.toUpperCase()}</span>
       </div>
 
+      ${variantMarkup}
+
       <div class="lesson-collapsible">
         <h2 class="panel-title" style="margin-bottom:6px">${lesson.title}</h2>
         <p class="panel-summary" id="lesson-intro-slot"></p>
+
+      <div class="lesson-live-telemetry" id="lesson-live-telemetry" hidden></div>
+      <div id="lesson-engine-stats-slot"></div>
+      <div id="lesson-extended-sub-slot"></div>
 
       ${
         lesson.phases
@@ -197,6 +237,30 @@ export function createLessonPanel(
         >Part Labels</button>
       </div>
 
+      <details class="deep-dive-card" style="margin-bottom:8px">
+        <summary>Section Cut &amp; 3D Ruler Tools</summary>
+        <div style="padding-top:6px">
+          <div class="variant-seg-row" style="display:flex;margin-bottom:6px">
+            ${(['none', 'x', 'y', 'z'] as ClipAxis[])
+              .map(
+                (ax) => `<button type="button" class="variant-seg-btn lesson-clip-btn" data-clip="${ax}" aria-pressed="${snap.clipAxis === ax}">${ax === 'none' ? 'No Cut' : `Cut ${ax.toUpperCase()}`}</button>`,
+              )
+              .join('')}
+            <button type="button" class="variant-seg-btn" id="btn-lesson-ruler" aria-pressed="false">Ruler</button>
+          </div>
+          <input
+            type="range"
+            class="range-input"
+            id="lesson-clip-ratio"
+            min="10"
+            max="90"
+            value="${Math.round(snap.clipRatio * 100)}"
+            aria-label="Cross-section slice depth"
+          />
+          <div id="lesson-ruler-out" style="font-size:0.73rem;margin-top:4px;color:var(--text-secondary)" hidden></div>
+        </div>
+      </details>
+
       <div class="section-label">KEY COMPONENTS</div>
       <div class="key-parts-row" id="lesson-parts-chips">
         ${lesson.parts
@@ -229,13 +293,18 @@ export function createLessonPanel(
       renderJargonMarkup(lesson.intro, (termId) => actions.onOpenGlossary(termId)),
     );
 
+    const variantContainer = panel.querySelector<HTMLElement>('.variant-picker-block');
+    if (variantContainer && actions.onChangeVariant) {
+      bindVariantPickerEvents(variantContainer, (nextVar) => {
+        actions.onChangeVariant?.(systemId, nextVar);
+      });
+    }
+
     const quizBtn = panel.querySelector<HTMLButtonElement>('#btn-lesson-quiz')!;
     const syncQuizBtn = () => {
       const snap = appStore.getSnapshot();
-      const progress = snap.quizProgress;
-      const savedQuiz =
-        progress[`${powertrain}:${systemId}`] ??
-        (powertrain === 'petrol' ? progress[systemId] : undefined);
+      const activeVar = getActiveSystemVariant(snap, systemId);
+      const savedQuiz = getSavedQuizScore(snap.quizProgress, systemId, snap.activePowertrain, activeVar);
       quizBtn.textContent = savedQuiz
         ? `Take Quiz (Best: ${savedQuiz.bestScore}/${savedQuiz.total}) →`
         : 'Take 5-Question Quiz →';
@@ -248,6 +317,19 @@ export function createLessonPanel(
 
     phasePills = Array.from(panel.querySelectorAll<HTMLElement>('.phase-pill'));
     phaseCaption = panel.querySelector<HTMLElement>('#phase-caption');
+    telemetryBox = panel.querySelector<HTMLElement>('#lesson-live-telemetry');
+    const engineStatsSlot = panel.querySelector<HTMLElement>('#lesson-engine-stats-slot')!;
+    engineStatsHandle =
+      systemId === 'engine' && powertrain !== 'ev'
+        ? renderEngineStatsWidget(
+            engineStatsSlot,
+            (variant as import('../state/appState').EngineLayout) ?? 'single-cylinder',
+            initialSim,
+            actions.onSimChange,
+          )
+        : null;
+    const extSlot = panel.querySelector<HTMLElement>('#lesson-extended-sub-slot')!;
+    extendedSubHandle = renderExtendedSubTabs(extSlot, systemId, actions.onSimChange);
     inspectorBox = panel.querySelector<HTMLElement>('#lesson-inspector')!;
 
     partChipEls.clear();
@@ -269,7 +351,7 @@ export function createLessonPanel(
       expandedLabel: 'Hide ▾',
     });
     if (window.innerWidth <= 768) {
-      sheetBinding.setCollapsed(true);
+      sheetBinding.setCollapsed(preserveMobileState ? wasMobileCollapsed : true);
     }
 
     const btnPlay = panel.querySelector<HTMLButtonElement>('#btn-play-pause')!;
@@ -320,6 +402,35 @@ export function createLessonPanel(
       actions.onToggleLabels(labelsVisible);
     });
 
+    const clipBtns = Array.from(panel.querySelectorAll<HTMLButtonElement>('.lesson-clip-btn'));
+    const clipRatioInput = panel.querySelector<HTMLInputElement>('#lesson-clip-ratio')!;
+    for (const cb of clipBtns) {
+      cb.addEventListener('click', () => {
+        const ax = cb.dataset.clip as ClipAxis;
+        for (const other of clipBtns) other.setAttribute('aria-pressed', String(other === cb));
+        appStore.update({ clipAxis: ax });
+        actions.onChangeClip?.(ax, Number(clipRatioInput.value) / 100);
+      });
+    }
+    clipRatioInput.addEventListener('input', () => {
+      const r = Number(clipRatioInput.value) / 100;
+      appStore.update({ clipRatio: r });
+      actions.onChangeClip?.(appStore.getSnapshot().clipAxis, r);
+    });
+
+    const rulerBtn = panel.querySelector<HTMLButtonElement>('#btn-lesson-ruler')!;
+    let rulerOn = false;
+    rulerBtn.addEventListener('click', () => {
+      rulerOn = !rulerOn;
+      rulerBtn.setAttribute('aria-pressed', String(rulerOn));
+      actions.onToggleRuler?.(rulerOn);
+      const out = panel.querySelector<HTMLElement>('#lesson-ruler-out');
+      if (out) {
+        out.hidden = !rulerOn;
+        out.textContent = rulerOn ? 'Click two points on the 3D cutaway to measure.' : '';
+      }
+    });
+
     updateInspector(null);
 
     // Create 3D projected callout pins inside #label-layer
@@ -344,15 +455,41 @@ export function createLessonPanel(
     });
   };
 
-  let lastPhase = -1;
-  const setPhaseStatus = (phaseIndex?: number) => {
-    if (phaseIndex === undefined || phaseIndex === lastPhase || !currentLesson?.phases) return;
-    lastPhase = phaseIndex;
-    for (let i = 0; i < phasePills.length; i++) {
-      phasePills[i].classList.toggle('is-current', i === phaseIndex);
+  const setPhaseStatus = (status?: number | SystemFrameStatus) => {
+    const phaseIndex = typeof status === 'number' ? status : status?.phaseIndex;
+    if (phaseIndex !== undefined && phaseIndex !== lastPhase && currentLesson?.phases) {
+      lastPhase = phaseIndex;
+      for (let i = 0; i < phasePills.length; i++) {
+        phasePills[i].classList.toggle('is-current', i === phaseIndex);
+      }
+      if (phaseCaption && currentLesson.phases[phaseIndex]) {
+        phaseCaption.textContent = currentLesson.phases[phaseIndex].description;
+      }
     }
-    if (phaseCaption && currentLesson.phases[phaseIndex]) {
-      phaseCaption.textContent = currentLesson.phases[phaseIndex].description;
+
+    if (typeof status === 'object' && status) {
+      engineStatsHandle?.updateTelemetry(status.firingCylinder, status.rpm);
+      extendedSubHandle?.updateStatus(status);
+    }
+    if (telemetryBox && typeof status === 'object' && status) {
+      const chips: string[] = [];
+      if (status.activeGear) chips.push(`<span><strong>Gear:</strong> ${status.activeGear}</span>`);
+      if (status.gearRatio !== undefined) {
+        chips.push(`<span><strong>Ratio:</strong> ${status.gearRatio.toFixed(2)}:1</span>`);
+      }
+      if (status.rpm !== undefined) chips.push(`<span><strong>RPM:</strong> ${Math.round(status.rpm)}</span>`);
+      if (status.firingCylinder !== undefined) {
+        chips.push(`<span><strong>Firing:</strong> Cyl #${status.firingCylinder}</span>`);
+      }
+      if (status.powerFlowPct !== undefined) {
+        chips.push(`<span><strong>Power Flow:</strong> ${Math.round(status.powerFlowPct)}%</span>`);
+      }
+      if (chips.length > 0) {
+        telemetryBox.hidden = false;
+        telemetryBox.innerHTML = chips.join('');
+      } else {
+        telemetryBox.hidden = true;
+      }
     }
   };
 
@@ -374,6 +511,16 @@ export function createLessonPanel(
   return {
     open,
     setPhaseStatus,
+    setRulerStatus: (text: string | null) => {
+      const out = panel.querySelector<HTMLElement>('#lesson-ruler-out');
+      if (!out) return;
+      if (text) {
+        out.hidden = false;
+        out.textContent = text;
+      } else {
+        out.hidden = true;
+      }
+    },
     highlightPartUI,
     isMobileCollapsed: () => panel.classList.contains('is-collapsed-mobile'),
     close,

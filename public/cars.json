@@ -4,6 +4,22 @@
     "name": "Sports Coupe",
     "bodyType": "2-Door Coupe",
     "powertrain": "petrol",
+    "defaultTransmission": "manual",
+    "defaultEngine": "v6",
+    "allowedTransmissions": [
+      "manual",
+      "at",
+      "cvt",
+      "dct",
+      "amt"
+    ],
+    "allowedEngines": [
+      "single-cylinder",
+      "i4",
+      "v6",
+      "v8",
+      "rotary"
+    ],
     "style": "realistic",
     "quality": "full",
     "modelFile": "/models/CarConcept.glb",
@@ -351,6 +367,19 @@
     "name": "BMW M8 Competition",
     "bodyType": "Luxury GT Coupe",
     "powertrain": "petrol",
+    "defaultTransmission": "at",
+    "defaultEngine": "v8",
+    "allowedTransmissions": [
+      "at",
+      "dct"
+    ],
+    "allowedEngines": [
+      "v6",
+      "i6",
+      "v8",
+      "v10",
+      "v12"
+    ],
     "style": "realistic",
     "quality": "full",
     "modelFile": "/models/bmw-m8.glb",
@@ -658,6 +687,12 @@
     "name": "Alpine A390",
     "bodyType": "All-Electric Crossover",
     "powertrain": "ev",
+    "defaultTransmission": "ev-reducer",
+    "defaultEngine": "single-cylinder",
+    "allowedTransmissions": [
+      "ev-reducer"
+    ],
+    "allowedEngines": [],
     "style": "realistic",
     "quality": "full",
     "modelFile": "/models/alpine-a390.glb",
@@ -1263,6 +1298,20 @@
     "name": "Compact Hatchback",
     "bodyType": "5-Door Hatch",
     "powertrain": "petrol",
+    "defaultTransmission": "manual",
+    "defaultEngine": "i3",
+    "allowedTransmissions": [
+      "manual",
+      "amt",
+      "cvt",
+      "dct"
+    ],
+    "allowedEngines": [
+      "single-cylinder",
+      "i3",
+      "i4",
+      "flat-4"
+    ],
     "style": "realistic",
     "quality": "outline-only",
     "modelFile": "/models/Hatchback.glb",
@@ -1601,6 +1650,20 @@
     "name": "Sedan (Stylized)",
     "bodyType": "4-Door Sedan",
     "powertrain": "petrol",
+    "defaultTransmission": "cvt",
+    "defaultEngine": "i4",
+    "allowedTransmissions": [
+      "manual",
+      "cvt",
+      "at",
+      "dct"
+    ],
+    "allowedEngines": [
+      "single-cylinder",
+      "i3",
+      "i4",
+      "v6"
+    ],
     "style": "stylized",
     "quality": "full",
     "modelFile": "/models/Sedan.glb",
@@ -1939,6 +2002,20 @@
     "name": "SUV (Stylized)",
     "bodyType": "Midsize SUV",
     "powertrain": "diesel",
+    "defaultTransmission": "at",
+    "defaultEngine": "i4",
+    "allowedTransmissions": [
+      "at",
+      "manual",
+      "cvt",
+      "dct"
+    ],
+    "allowedEngines": [
+      "i4",
+      "i6",
+      "v6",
+      "v8"
+    ],
     "style": "stylized",
     "quality": "full",
     "modelFile": "/models/SUV.glb",
@@ -2281,6 +2358,19 @@
     "name": "Hatchback (Stylized)",
     "bodyType": "5-Door Hatch",
     "powertrain": "petrol",
+    "defaultTransmission": "manual",
+    "defaultEngine": "i4",
+    "allowedTransmissions": [
+      "manual",
+      "amt",
+      "cvt",
+      "dct"
+    ],
+    "allowedEngines": [
+      "single-cylinder",
+      "i3",
+      "i4"
+    ],
     "style": "stylized",
     "quality": "full",
     "modelFile": "/models/Hatchback.glb",
@@ -2619,6 +2709,12 @@
     "name": "Electric Car (Stylized)",
     "bodyType": "All-Electric Fastback",
     "powertrain": "ev",
+    "defaultTransmission": "ev-reducer",
+    "defaultEngine": "single-cylinder",
+    "allowedTransmissions": [
+      "ev-reducer"
+    ],
+    "allowedEngines": [],
     "style": "stylized",
     "quality": "full",
     "modelFile": "/models/EV.glb",

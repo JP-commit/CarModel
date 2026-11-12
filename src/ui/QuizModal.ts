@@ -1,6 +1,6 @@
 import { getSystemLesson } from '../data/lessons';
 import { getSystemMetadata } from '../data/systems';
-import { appStore, type SystemId } from '../state/appState';
+import { appStore, getActiveSystemVariant, type SystemId } from '../state/appState';
 
 export interface QuizModalHandle {
   open: (systemId: SystemId) => void;
@@ -40,13 +40,15 @@ export function createQuizModal(uiRoot: HTMLElement): QuizModalHandle {
 
   const renderQuestion = () => {
     if (!activeSystem) return;
-    const powertrain = appStore.getSnapshot().activePowertrain;
-    const lesson = getSystemLesson(activeSystem, powertrain);
-    const meta = getSystemMetadata(activeSystem, powertrain);
+    const snap = appStore.getSnapshot();
+    const powertrain = snap.activePowertrain;
+    const variant = getActiveSystemVariant(snap, activeSystem);
+    const lesson = getSystemLesson(activeSystem, powertrain, variant);
+    const meta = getSystemMetadata(activeSystem, powertrain, variant);
     const questions = lesson.quiz;
 
     if (currentIdx >= questions.length) {
-      appStore.saveQuizScore(activeSystem, score, questions.length, powertrain);
+      appStore.saveQuizScore(activeSystem, score, questions.length, powertrain, variant);
       const pct = Math.round((score / questions.length) * 100);
       const praise =
         score === questions.length

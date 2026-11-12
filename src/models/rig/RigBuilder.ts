@@ -30,6 +30,8 @@ export interface RigPartLabelEntry {
 
 export interface RigSystemEntry {
   systemId: SystemId;
+  variant?: string;
+  bayWarning?: string;
   root: THREE.Group;
   restPosition: THREE.Vector3;
   systemPinAnchor: THREE.Object3D;
@@ -37,6 +39,8 @@ export interface RigSystemEntry {
   partMeta: Map<string, RigPartMetadata>;
   partLabels: RigPartLabelEntry[];
   partVisuals: RigPartVisualRecord[];
+  systemMeshes: THREE.Mesh[];
+  lineGeos: LineSegmentsGeometry[];
   explodables: ExplodableEntry[];
   setExplode: (amount: number) => void;
 }
@@ -46,6 +50,14 @@ export interface CarInnerRig {
   pickMeshes: THREE.Mesh[];
   systems: Map<SystemId, RigSystemEntry>;
   systemAnchorObjects: Partial<Record<SystemId, THREE.Object3D>>;
+  replaceSystemVariant: (sysId: SystemId, variant?: string) => Promise<void>;
+  getSystemBayWarning: (sysId: SystemId) => string | undefined;
+  updateActiveSystem: (
+    sysId: SystemId,
+    dt: number,
+    playing: boolean,
+    reduceMotion: boolean,
+  ) => void;
   setExplodeForSystem: (
     activeSystem: SystemId | null,
     amount: number,
@@ -134,224 +146,268 @@ export async function buildCarInnerRig(
   carSize: THREE.Vector3,
   frontSign: number,
   drawBufSize: THREE.Vector2,
+  initialVariants?: Partial<Record<SystemId, string>>,
 ): Promise<CarInnerRig> {
   const rigRoot = new THREE.Group();
   rigRoot.name = 'InnerSystemsRig';
 
   const palette = createRigHighlightPalette(drawBufSize);
   const sharedEdgesCache = new Map<THREE.BufferGeometry, Float32Array | null>();
-  const createdLineGeos: LineSegmentsGeometry[] = [];
   const systems = new Map<SystemId, RigSystemEntry>();
   const systemAnchorObjects: Partial<Record<SystemId, THREE.Object3D>> = {};
   const pickMeshes: THREE.Mesh[] = [];
+  let lastVisualState: Parameters<CarInnerRig['setVisualState']>[0] | null = null;
+
+  const rebuildPickMeshes = () => {
+    pickMeshes.length = 0;
+    for (const entry of systems.values()) {
+      for (const m of entry.systemMeshes) {
+        pickMeshes.push(m);
+      }
+    }
+  };
+
+  const buildRigSystemEntry = async (
+    sysId: SystemId,
+    anchor: THREE.Vector3,
+    variant?: string,
+  ): Promise<RigSystemEntry> => {
+    const modelInstance = await loadSystemModule(sysId, powertrain, variant);
+    const lessonData = getSystemLesson(sysId, powertrain, variant);
+
+    const partMeta = new Map<string, RigPartMetadata>();
+    for (const p of lessonData.parts) {
+      partMeta.set(p.id, {
+        systemId: sysId,
+        partId: p.id,
+        name: p.name,
+        description: p.plainEnglish,
+      });
+    }
+    for (const la of modelInstance.labelAnchors) {
+      if (!partMeta.has(la.partId)) {
+        partMeta.set(la.partId, {
+          systemId: sysId,
+          partId: la.partId,
+          name: la.name,
+          description: lessonData.subtitle,
+        });
+      }
+    }
+
+    // Remove animation-only particles / road strips cleanly before measuring bounding box
+    const lessonOnlyObjects: THREE.Object3D[] = [];
+    modelInstance.root.traverse((obj) => {
+      if (obj.userData.lessonOnly) {
+        lessonOnlyObjects.push(obj);
+      }
+    });
+    for (const obj of lessonOnlyObjects) {
+      obj.removeFromParent();
+      disposeObject3D(obj);
+    }
+
+    expandStaticInstancedMeshes(modelInstance.root);
+
+    // Compute tight rest-pose bounding box across mechanical sub-parts only
+    modelInstance.root.updateMatrixWorld(true);
+    const rawBox = new THREE.Box3();
+    for (const partRoot of modelInstance.partObjects) {
+      rawBox.expandByObject(partRoot);
+    }
+    if (rawBox.isEmpty()) {
+      rawBox.setFromObject(modelInstance.root);
+    }
+
+    const rawSize = rawBox.getSize(new THREE.Vector3());
+    const rawCenter = rawBox.getCenter(new THREE.Vector3());
+    const naturalMax = modelInstance.naturalBounds
+      ? Math.max(
+          modelInstance.naturalBounds.length,
+          modelInstance.naturalBounds.width,
+          modelInstance.naturalBounds.height,
+          0.01,
+        )
+      : Math.max(rawSize.x, rawSize.y, rawSize.z, 0.01);
+
+    const placement = computeRigSystemPlacement(
+      sysId,
+      powertrain,
+      anchor,
+      anchors,
+      carBox,
+      carSize,
+      frontSign,
+    );
+    const lengthRatio = Math.max(0.75, Math.min(1.35, carSize.z / 4.25));
+    const baseExtent = modelInstance.targetRigExtent
+      ? modelInstance.targetRigExtent * lengthRatio
+      : placement.targetExtent;
+
+    // Fit check against vehicle bay dimensions so oversized multi-cylinder variants warn clearly yet fit safely
+    let bayWarning: string | undefined;
+    const maxBayLength = sysId === 'engine' ? carSize.z * 0.28 : baseExtent * 1.4;
+    const targetExtent = Math.min(baseExtent, maxBayLength);
+    if (sysId === 'engine' && (variant === 'v10' || variant === 'v12') && carSize.z < 4.15) {
+      bayWarning = `${variant.toUpperCase()} scaled tightly to fit compact engine bay`;
+    }
+    const uniformScale = targetExtent / naturalMax;
+
+    const systemRoot = new THREE.Group();
+    systemRoot.name = `RigSystem_${sysId}`;
+    systemRoot.position.copy(placement.position);
+    systemRoot.rotation.y = placement.rotationY;
+
+    const fitGroup = new THREE.Group();
+    fitGroup.scale.setScalar(uniformScale);
+    fitGroup.position.copy(rawCenter).multiplyScalar(-uniformScale);
+    fitGroup.add(modelInstance.root);
+    systemRoot.add(fitGroup);
+    rigRoot.add(systemRoot);
+
+    // Guard against any nose, bumper, or floor protrusion by clamping placed world bounds inside safe vehicle envelope
+    systemRoot.updateMatrixWorld(true);
+    const placedBox = new THREE.Box3().setFromObject(systemRoot);
+    const minYFloor = carBox.min.y + 0.14;
+    const maxYCeiling = carBox.min.y + carSize.y * 0.82;
+    if (placedBox.min.y < minYFloor) {
+      systemRoot.position.y += minYFloor - placedBox.min.y;
+    } else if (placedBox.max.y > maxYCeiling) {
+      systemRoot.position.y -= placedBox.max.y - maxYCeiling;
+    }
+
+    const zClearance = sysId === 'exhaust' ? 0.16 : 0.34;
+    const minZSafe = carBox.min.z + zClearance;
+    const maxZSafe = carBox.max.z - zClearance;
+    if (placedBox.max.z > maxZSafe) {
+      systemRoot.position.z -= placedBox.max.z - maxZSafe;
+    } else if (placedBox.min.z < minZSafe) {
+      systemRoot.position.z += minZSafe - placedBox.min.z;
+    }
+
+    if (sysId !== 'brakes' && sysId !== 'suspension') {
+      const xClearance = 0.18;
+      const minXSafe = carBox.min.x + xClearance;
+      const maxXSafe = carBox.max.x - xClearance;
+      if (placedBox.max.x > maxXSafe) {
+        systemRoot.position.x -= placedBox.max.x - maxXSafe;
+      } else if (placedBox.min.x < minXSafe) {
+        systemRoot.position.x += minXSafe - placedBox.min.x;
+      }
+    }
+
+    const partVisuals: RigPartVisualRecord[] = [];
+    const partLabels: RigPartLabelEntry[] = [];
+    const systemMeshes: THREE.Mesh[] = [];
+    const lineGeos: LineSegmentsGeometry[] = [];
+    systemRoot.updateMatrixWorld(true);
+    const partWorldInv = new THREE.Matrix4();
+    const meshBox = new THREE.Box3();
+    const partLocalBox = new THREE.Box3();
+    const localCenter = new THREE.Vector3();
+
+    for (const partObj of modelInstance.partObjects) {
+      const partId = (partObj.userData.partId as string) || 'part';
+      partObj.updateMatrixWorld(true);
+      partWorldInv.copy(partObj.matrixWorld).invert();
+      partLocalBox.makeEmpty();
+
+      const partMeshes: THREE.Mesh[] = [];
+      partObj.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh || mesh.userData.isOutlineChild || mesh.userData.lessonOnly) return;
+        mesh.userData.systemId = sysId;
+        mesh.userData.partId = partId;
+        partMeshes.push(mesh);
+
+        if (mesh.geometry) {
+          if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+          if (mesh.geometry.boundingBox) {
+            meshBox.copy(mesh.geometry.boundingBox);
+            const relMat = new THREE.Matrix4().multiplyMatrices(partWorldInv, mesh.matrixWorld);
+            meshBox.applyMatrix4(relMat);
+            partLocalBox.union(meshBox);
+          }
+        }
+      });
+
+      const { lineGeos: partLineGeos, dashedLines, solidLines } = createCombinedPartEdgeLines(
+        partObj,
+        partMeshes,
+        palette,
+        sharedEdgesCache,
+      );
+      lineGeos.push(...partLineGeos);
+
+      const meshRecs = partMeshes.map((mesh) => {
+        systemMeshes.push(mesh);
+        return decorateRigMesh(mesh, partId, palette);
+      });
+
+      const labelNode = new THREE.Object3D();
+      labelNode.name = `RigPartLabel_${sysId}_${partId}`;
+      if (!partLocalBox.isEmpty()) {
+        partLocalBox.getCenter(localCenter);
+        labelNode.position.copy(localCenter);
+      }
+      partObj.add(labelNode);
+      const meta = partMeta.get(partId);
+      partLabels.push({
+        partId,
+        name: meta?.name ?? partId,
+        anchor: labelNode,
+      });
+
+      partVisuals.push({
+        partId,
+        dashedLines,
+        solidLines,
+        meshes: meshRecs,
+      });
+    }
+
+    const systemPinAnchor = new THREE.Object3D();
+    systemPinAnchor.name = `RigSystemPin_${sysId}`;
+    systemRoot.add(systemPinAnchor);
+
+    const explodables = modelInstance.explodables ?? [];
+    const setExplode = (amount: number) => {
+      const clamped = Math.max(0, Math.min(1, amount));
+      if (explodables.length > 0) {
+        applyExplodeOffsets(explodables, clamped);
+      } else {
+        modelInstance.setExplode(clamped);
+      }
+    };
+
+    return {
+      systemId: sysId,
+      variant,
+      bayWarning,
+      root: systemRoot,
+      restPosition: systemRoot.position.clone(),
+      systemPinAnchor,
+      modelInstance,
+      partMeta,
+      partLabels,
+      partVisuals,
+      systemMeshes,
+      lineGeos,
+      explodables,
+      setExplode,
+    };
+  };
 
   await Promise.all(
     availableSystems.map(async (sysId) => {
       const anchor = anchors[sysId];
       if (!anchor) return;
-
-      const modelInstance = await loadSystemModule(sysId, powertrain);
-      const lessonData = getSystemLesson(sysId, powertrain);
-
-      const partMeta = new Map<string, RigPartMetadata>();
-      for (const p of lessonData.parts) {
-        partMeta.set(p.id, {
-          systemId: sysId,
-          partId: p.id,
-          name: p.name,
-          description: p.plainEnglish,
-        });
-      }
-      for (const la of modelInstance.labelAnchors) {
-        if (!partMeta.has(la.partId)) {
-          partMeta.set(la.partId, {
-            systemId: sysId,
-            partId: la.partId,
-            name: la.name,
-            description: lessonData.subtitle,
-          });
-        }
-      }
-
-      // Remove animation-only particles / road strips cleanly before measuring bounding box
-      const lessonOnlyObjects: THREE.Object3D[] = [];
-      modelInstance.root.traverse((obj) => {
-        if (obj.userData.lessonOnly) {
-          lessonOnlyObjects.push(obj);
-        }
-      });
-      for (const obj of lessonOnlyObjects) {
-        obj.removeFromParent();
-        disposeObject3D(obj);
-      }
-
-      expandStaticInstancedMeshes(modelInstance.root);
-
-      // Compute tight rest-pose bounding box across mechanical sub-parts only
-      modelInstance.root.updateMatrixWorld(true);
-      const rawBox = new THREE.Box3();
-      for (const partRoot of modelInstance.partObjects) {
-        rawBox.expandByObject(partRoot);
-      }
-      if (rawBox.isEmpty()) {
-        rawBox.setFromObject(modelInstance.root);
-      }
-
-      const rawSize = rawBox.getSize(new THREE.Vector3());
-      const rawCenter = rawBox.getCenter(new THREE.Vector3());
-      const maxDim = Math.max(rawSize.x, rawSize.y, rawSize.z, 0.01);
-
-      const placement = computeRigSystemPlacement(
-        sysId,
-        powertrain,
-        anchor,
-        anchors,
-        carBox,
-        carSize,
-        frontSign,
-      );
-      const uniformScale = placement.targetExtent / maxDim;
-
-      const systemRoot = new THREE.Group();
-      systemRoot.name = `RigSystem_${sysId}`;
-      systemRoot.position.copy(placement.position);
-      systemRoot.rotation.y = placement.rotationY;
-
-      const fitGroup = new THREE.Group();
-      fitGroup.scale.setScalar(uniformScale);
-      fitGroup.position.copy(rawCenter).multiplyScalar(-uniformScale);
-      fitGroup.add(modelInstance.root);
-      systemRoot.add(fitGroup);
-      rigRoot.add(systemRoot);
-
-      // Guard against any nose, bumper, or floor protrusion by clamping placed world bounds inside safe vehicle envelope
-      systemRoot.updateMatrixWorld(true);
-      const placedBox = new THREE.Box3().setFromObject(systemRoot);
-      const minYFloor = carBox.min.y + 0.14;
-      const maxYCeiling = carBox.min.y + carSize.y * 0.82;
-      if (placedBox.min.y < minYFloor) {
-        systemRoot.position.y += minYFloor - placedBox.min.y;
-      } else if (placedBox.max.y > maxYCeiling) {
-        systemRoot.position.y -= placedBox.max.y - maxYCeiling;
-      }
-
-      const zClearance = sysId === 'exhaust' ? 0.16 : 0.34;
-      const minZSafe = carBox.min.z + zClearance;
-      const maxZSafe = carBox.max.z - zClearance;
-      if (placedBox.max.z > maxZSafe) {
-        systemRoot.position.z -= placedBox.max.z - maxZSafe;
-      } else if (placedBox.min.z < minZSafe) {
-        systemRoot.position.z += minZSafe - placedBox.min.z;
-      }
-
-      if (sysId !== 'brakes' && sysId !== 'suspension') {
-        const xClearance = 0.18;
-        const minXSafe = carBox.min.x + xClearance;
-        const maxXSafe = carBox.max.x - xClearance;
-        if (placedBox.max.x > maxXSafe) {
-          systemRoot.position.x -= placedBox.max.x - maxXSafe;
-        } else if (placedBox.min.x < minXSafe) {
-          systemRoot.position.x += minXSafe - placedBox.min.x;
-        }
-      }
-
-      const partVisuals: RigPartVisualRecord[] = [];
-      const partLabels: RigPartLabelEntry[] = [];
-      systemRoot.updateMatrixWorld(true);
-      const partWorldInv = new THREE.Matrix4();
-      const meshBox = new THREE.Box3();
-      const partLocalBox = new THREE.Box3();
-      const localCenter = new THREE.Vector3();
-
-      for (const partObj of modelInstance.partObjects) {
-        const partId = (partObj.userData.partId as string) || 'part';
-        partObj.updateMatrixWorld(true);
-        partWorldInv.copy(partObj.matrixWorld).invert();
-        partLocalBox.makeEmpty();
-
-        const partMeshes: THREE.Mesh[] = [];
-        partObj.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (!mesh.isMesh || mesh.userData.isOutlineChild || mesh.userData.lessonOnly) return;
-          mesh.userData.systemId = sysId;
-          mesh.userData.partId = partId;
-          partMeshes.push(mesh);
-
-          if (mesh.geometry) {
-            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-            if (mesh.geometry.boundingBox) {
-              meshBox.copy(mesh.geometry.boundingBox);
-              const relMat = new THREE.Matrix4().multiplyMatrices(partWorldInv, mesh.matrixWorld);
-              meshBox.applyMatrix4(relMat);
-              partLocalBox.union(meshBox);
-            }
-          }
-        });
-
-        const { lineGeo, dashedLine, solidLine } = createCombinedPartEdgeLines(
-          partObj,
-          partMeshes,
-          palette,
-          sharedEdgesCache,
-        );
-        if (lineGeo) createdLineGeos.push(lineGeo);
-
-        const meshRecs = partMeshes.map((mesh) => {
-          pickMeshes.push(mesh);
-          return decorateRigMesh(mesh, partId, palette);
-        });
-
-        const labelNode = new THREE.Object3D();
-        labelNode.name = `RigPartLabel_${sysId}_${partId}`;
-        if (!partLocalBox.isEmpty()) {
-          partLocalBox.getCenter(localCenter);
-          labelNode.position.copy(localCenter);
-        }
-        partObj.add(labelNode);
-        const meta = partMeta.get(partId);
-        partLabels.push({
-          partId,
-          name: meta?.name ?? partId,
-          anchor: labelNode,
-        });
-
-        partVisuals.push({
-          partId,
-          dashedLine,
-          solidLine,
-          meshes: meshRecs,
-        });
-      }
-
-      const systemPinAnchor = new THREE.Object3D();
-      systemPinAnchor.name = `RigSystemPin_${sysId}`;
-      systemRoot.add(systemPinAnchor);
-      systemAnchorObjects[sysId] = systemPinAnchor;
-
-      const explodables = modelInstance.explodables ?? [];
-      const setExplode = (amount: number) => {
-        const clamped = Math.max(0, Math.min(1, amount));
-        if (explodables.length > 0) {
-          applyExplodeOffsets(explodables, clamped);
-        } else {
-          modelInstance.setExplode(clamped);
-        }
-      };
-
-      systems.set(sysId, {
-        systemId: sysId,
-        root: systemRoot,
-        restPosition: systemRoot.position.clone(),
-        systemPinAnchor,
-        modelInstance,
-        partMeta,
-        partLabels,
-        partVisuals,
-        explodables,
-        setExplode,
-      });
+      const entry = await buildRigSystemEntry(sysId, anchor, initialVariants?.[sysId]);
+      systems.set(sysId, entry);
+      systemAnchorObjects[sysId] = entry.systemPinAnchor;
     }),
   );
+  rebuildPickMeshes();
 
   const setExplodeForSystem: CarInnerRig['setExplodeForSystem'] = (
     activeSystem,
@@ -366,9 +422,9 @@ export async function buildCarInnerRig(
         if (clamped > 0.001) {
           const normal = outwardNormals?.[sysId];
           if (normal) {
-            entry.root.position.addScaledVector(normal, clamped * 0.24);
+            entry.root.position.addScaledVector(normal, clamped * 0.52);
           } else {
-            entry.root.position.y += clamped * 0.14;
+            entry.root.position.y += clamped * 0.28;
           }
           entry.root.position.y = Math.max(entry.restPosition.y - 0.04, entry.root.position.y);
         }
@@ -386,15 +442,17 @@ export async function buildCarInnerRig(
     }
   };
 
-  const setVisualState: CarInnerRig['setVisualState'] = ({
-    renderMode,
-    activeSystem,
-    hoveredPart,
-    selectedPart,
-    visibleSystems,
-    ghostedSystems,
-    ghostFade = 1,
-  }) => {
+  const setVisualState: CarInnerRig['setVisualState'] = (opts) => {
+    lastVisualState = opts;
+    const {
+      renderMode,
+      activeSystem,
+      hoveredPart,
+      selectedPart,
+      visibleSystems,
+      ghostedSystems,
+      ghostFade = 1,
+    } = opts;
     palette.setGhostFade(ghostFade);
     for (const [sysId, entry] of systems) {
       const visible = visibleSystems.has(sysId);
@@ -417,6 +475,50 @@ export async function buildCarInnerRig(
         });
       }
     }
+  };
+
+  const replaceSystemVariant: CarInnerRig['replaceSystemVariant'] = async (sysId, variant) => {
+    const anchor = anchors[sysId];
+    const existing = systems.get(sysId);
+    if (!anchor) return;
+    if (existing && existing.variant === variant) return;
+
+    const nextEntry = await buildRigSystemEntry(sysId, anchor, variant);
+
+    if (existing) {
+      existing.root.removeFromParent();
+      for (const lg of existing.lineGeos) lg.dispose();
+      existing.modelInstance.dispose();
+      disposeObject3D(existing.root);
+    }
+
+    systems.set(sysId, nextEntry);
+    systemAnchorObjects[sysId] = nextEntry.systemPinAnchor;
+    rebuildPickMeshes();
+    if (lastVisualState) {
+      setVisualState(lastVisualState);
+    }
+  };
+
+  const getSystemBayWarning: CarInnerRig['getSystemBayWarning'] = (sysId) => {
+    return systems.get(sysId)?.bayWarning;
+  };
+
+  const updateActiveSystem: CarInnerRig['updateActiveSystem'] = (
+    sysId,
+    dt,
+    playing,
+    reduceMotion,
+  ) => {
+    const entry = systems.get(sysId);
+    if (!entry) return;
+    entry.modelInstance.update(dt, {
+      playing,
+      speed: 0.75,
+      explode: 0,
+      xray: false,
+      reduceMotion,
+    });
   };
 
   const getPartMetadata = (systemId: SystemId, partId: string): RigPartMetadata | null => {
@@ -446,6 +548,9 @@ export async function buildCarInnerRig(
     pickMeshes,
     systems,
     systemAnchorObjects,
+    replaceSystemVariant,
+    getSystemBayWarning,
+    updateActiveSystem,
     setExplodeForSystem,
     setVisualState,
     getPartMetadata,
@@ -453,15 +558,12 @@ export async function buildCarInnerRig(
     getSystemWorldBoundingSphere,
     setResolution: (width, height) => palette.setResolution(width, height),
     dispose: () => {
-      for (const lineGeo of createdLineGeos) {
-        lineGeo.dispose();
-      }
-      createdLineGeos.length = 0;
-      sharedEdgesCache.clear();
-      palette.dispose();
       for (const entry of systems.values()) {
+        for (const lg of entry.lineGeos) lg.dispose();
         entry.modelInstance.dispose();
       }
+      sharedEdgesCache.clear();
+      palette.dispose();
       disposeObject3D(rigRoot);
     },
   };

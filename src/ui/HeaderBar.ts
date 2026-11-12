@@ -5,6 +5,9 @@ export interface HeaderBarActions {
   onSelectRenderMode: (mode: RenderMode) => void;
   onToggleCarPicker: () => void;
   onOpenGlossary: () => void;
+  onOpenLab?: () => void;
+  onToggleAudio?: () => void;
+  onShareView?: () => void;
   onResetView: () => void;
   onToggleXRay: () => void;
   onToggleReduceMotion: () => void;
@@ -94,6 +97,46 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
         <button
           type="button"
           class="icon-action-btn"
+          id="btn-open-lab"
+          aria-label="Open Learning Lab and Drive Simulator"
+          data-tooltip="Drive Sim & Lab"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+            <path d="M12 12l5-5" stroke-linecap="round" />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="icon-action-btn"
+          id="btn-toggle-audio"
+          aria-pressed="false"
+          aria-label="Toggle engine sound"
+          data-tooltip="Engine Sound (Muted)"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M11 5 6 9H2v6h4l5 4V5z" />
+            <path d="M16 9a5 5 0 0 1 0 6" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="icon-action-btn"
+          id="btn-share-view"
+          aria-label="Share view link and PNG snapshot"
+          data-tooltip="Share / PNG"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="icon-action-btn"
           id="btn-open-glossary"
           aria-label="Open automotive glossary"
           data-tooltip="Glossary"
@@ -160,6 +203,9 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
   const btnCarPicker = header.querySelector<HTMLButtonElement>('#btn-car-picker')!;
   const carPickerName = header.querySelector<HTMLElement>('#car-picker-name')!;
   const carPickerThumb = header.querySelector<HTMLImageElement>('#car-picker-thumb')!;
+  const btnLab = header.querySelector<HTMLButtonElement>('#btn-open-lab')!;
+  const btnAudio = header.querySelector<HTMLButtonElement>('#btn-toggle-audio')!;
+  const btnShare = header.querySelector<HTMLButtonElement>('#btn-share-view')!;
   const btnGlossary = header.querySelector<HTMLButtonElement>('#btn-open-glossary')!;
   const btnXRay = header.querySelector<HTMLButtonElement>('#btn-xray')!;
   const btnMotion = header.querySelector<HTMLButtonElement>('#btn-reduce-motion')!;
@@ -181,6 +227,9 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
   }
 
   btnCarPicker.addEventListener('click', actions.onToggleCarPicker);
+  btnLab.addEventListener('click', () => actions.onOpenLab?.());
+  btnAudio.addEventListener('click', () => actions.onToggleAudio?.());
+  btnShare.addEventListener('click', () => actions.onShareView?.());
   btnGlossary.addEventListener('click', actions.onOpenGlossary);
   btnXRay.addEventListener('click', actions.onToggleXRay);
   btnMotion.addEventListener('click', actions.onToggleReduceMotion);
@@ -191,6 +240,11 @@ export function createHeaderBar(parent: HTMLElement, actions: HeaderBarActions):
 
   const unsubscribe = appStore.subscribe((state) => {
     btnXRay.setAttribute('aria-pressed', String(state.xrayCar));
+    btnAudio.setAttribute('aria-pressed', String(state.audioEnabled));
+    btnAudio.setAttribute(
+      'data-tooltip',
+      state.audioEnabled ? 'Engine Sound (Active)' : 'Engine Sound (Muted)',
+    );
     btnMotion.setAttribute('aria-pressed', String(state.reduceMotion));
     const isHigh = state.graphicsQuality === 'high';
     btnQuality.textContent = isHigh ? 'HQ' : 'LQ';

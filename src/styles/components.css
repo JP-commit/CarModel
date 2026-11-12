@@ -2154,3 +2154,244 @@
     transform: translateY(16px);
   }
 }
+
+.variant-picker-block {
+  margin: 4px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.variant-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.variant-seg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.variant-seg-btn {
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft, #f4efe8);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.variant-seg-btn[aria-pressed='true'] {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.variant-mobile-select {
+  display: none;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel, #fff);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .variant-picker-block .variant-seg-row {
+    display: none;
+  }
+
+  .variant-picker-block .variant-mobile-select {
+    display: block;
+  }
+}
+
+.lesson-live-telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(217, 58, 30, 0.07);
+  border: 1px solid var(--accent-border);
+  font-size: 0.75rem;
+  color: var(--ink);
+}
+
+.lesson-live-telemetry span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bay-warning-banner {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+:root[data-font-scale='large'] {
+  font-size: 17px;
+}
+
+.engine-stats-card {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft, #f7f4ee);
+}
+
+.engine-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  font-size: 0.74rem;
+}
+
+.engine-stats-grid .stat-k {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.engine-balance-note {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.firing-order-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.firing-cyl-pill {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(28, 27, 25, 0.08);
+  color: var(--ink);
+  transition: background-color 110ms ease, color 110ms ease, transform 110ms ease;
+}
+
+.firing-cyl-pill.is-firing {
+  background: var(--accent, #d93a1e);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.engine-torque-svg {
+  width: 100%;
+  height: 54px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.deep-dive-card {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 0.76rem;
+}
+
+.deep-dive-card summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deep-dive-list {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--text-secondary);
+  line-height: 1.42;
+}
+
+.modal-card--wide {
+  max-width: 720px;
+}
+
+.lab-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.lab-mini-card {
+  padding: 11px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft, #f7f4ee);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lab-mini-card h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.lab-mini-card p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.dev-debug-hud {
+  position: fixed;
+  top: 72px;
+  left: 16px;
+  z-index: 45;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: rgba(24, 24, 27, 0.88);
+  color: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.live-caption-bar,
+.share-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 44;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(28, 27, 25, 0.9);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  pointer-events: none;
+}

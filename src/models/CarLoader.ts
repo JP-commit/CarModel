@@ -51,6 +51,14 @@ export interface CarRig {
   getRigPartInfo: (systemId: SystemId, partId: string) => RigPartMetadata | null;
   getExplodedPartLabels: (systemId: SystemId) => RigPartLabelEntry[];
   getExplodeFocusSphere: () => THREE.Sphere | null;
+  replaceSystemVariant: (systemId: SystemId, variant?: string) => Promise<void>;
+  getSystemBayWarning: (systemId: SystemId) => string | undefined;
+  updateActiveSystem: (
+    systemId: SystemId,
+    dt: number,
+    playing: boolean,
+    reduceMotion: boolean,
+  ) => void;
   getSystemFocus: (
     systemId: SystemId,
     aspect: number,
@@ -196,6 +204,7 @@ export async function loadCarFromManifest(
   initialIsolationMode: IsolationMode = 'ghost',
   initialPaintColor = 'original',
   initialQuality: GraphicsQuality = 'high',
+  initialVariants?: Partial<Record<SystemId, string>>,
 ): Promise<CarRig> {
   onProgress(6, `Loading ${car.name}…`);
 
@@ -805,6 +814,7 @@ export async function loadCarFromManifest(
     carSize,
     frontSign,
     drawBufSize,
+    initialVariants,
   );
   root.add(innerRig.root);
 
@@ -1114,25 +1124,15 @@ export async function loadCarFromManifest(
 
   const applyCurrentExplodeTransforms = () => {
     if (hoodObj) gsap.killTweensOf(hoodObj.position);
-    if (activeSystem === null) {
-      for (const item of explodableNodes) {
-        item.obj.position
-          .copy(item.basePos)
-          .addScaledVector(item.localOffset, currentExplode);
-        if (item.obj === hoodObj && shouldLiftHood(isXRayOn)) {
-          item.obj.position.add(hoodWorldUpLocal);
-        }
+    for (const item of explodableNodes) {
+      item.obj.position
+        .copy(item.basePos)
+        .addScaledVector(item.localOffset, currentExplode * 1.85);
+      if (item.obj === hoodObj && shouldLiftHood(isXRayOn)) {
+        item.obj.position.add(hoodWorldUpLocal);
       }
-      innerRig.setExplodeForSystem(null, currentExplode, outwardNormals);
-    } else {
-      for (const item of explodableNodes) {
-        item.obj.position.copy(item.basePos);
-        if (item.obj === hoodObj && shouldLiftHood(isXRayOn)) {
-          item.obj.position.add(hoodWorldUpLocal);
-        }
-      }
-      innerRig.setExplodeForSystem(activeSystem, currentExplode, outwardNormals);
     }
+    innerRig.setExplodeForSystem(null, currentExplode, outwardNormals);
   };
 
   const setExplode = (amount: number) => {
@@ -1178,9 +1178,6 @@ export async function loadCarFromManifest(
     innerRig.getExplodedPartLabels(systemId);
 
   const getExplodeFocusSphere = (): THREE.Sphere | null => {
-    if (activeSystem !== null) {
-      return innerRig.getSystemWorldBoundingSphere(activeSystem);
-    }
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
     return box.isEmpty() ? null : box.getBoundingSphere(new THREE.Sphere());
@@ -1249,6 +1246,9 @@ export async function loadCarFromManifest(
     getRigPartInfo,
     getExplodedPartLabels,
     getExplodeFocusSphere,
+    replaceSystemVariant: innerRig.replaceSystemVariant,
+    getSystemBayWarning: innerRig.getSystemBayWarning,
+    updateActiveSystem: innerRig.updateActiveSystem,
     getSystemFocus,
     dispose: () => {
       gsap.killTweensOf(solidXrayShellMat);

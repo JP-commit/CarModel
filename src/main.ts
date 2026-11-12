@@ -6,27 +6,51 @@ import * as THREE from 'three';
 import {
   loadCarsManifest,
   preloadCarThumbnails,
+  resolveCarEngine,
   resolveCarFromManifest,
+  resolveCarTransmission,
   type CarManifestEntry,
 } from './data/cars';
-import type { DrivetrainId } from './data/compare';
+import type { CompareCategory, CompareTransmissionId, DrivetrainId } from './data/compare';
 import { getSystemMetadata } from './data/systems';
 import { getTourSteps } from './data/tour';
 import { loadCarFromManifest, type CarRig } from './models/CarLoader';
 import type { CompareRigInstance } from './models/compare/drivetrains';
+import type { CompareTransmissionsInstance } from './models/compare/transmissions';
+import {
+  createLessonOutlineController,
+  type LessonOutlineController,
+} from './models/systems/OutlineDecorator';
 import { loadSystemModule } from './models/systems/registry';
 import type { SystemModelInstance, SystemSimulationState } from './models/systems/types';
 import { CameraRig } from './scene/CameraRig';
 import { LabelProjector, type ProjectedLabelEntry } from './scene/LabelProjector';
 import { createLightingStage } from './scene/LightingStage';
 import { detectWebGLSupport, SceneManager } from './scene/SceneManager';
-import { appStore, type RenderMode, type SystemId } from './state/appState';
+import {
+  appStore,
+  getActiveSystemVariant,
+  hasUrlVariantOverride,
+  type EngineLayout,
+  type RenderMode,
+  type SystemId,
+  type TransmissionType,
+} from './state/appState';
+import { EngineAudioSynth } from './audio/engineSynth';
 import { createCarPicker, createModelErrorCard } from './ui/CarPicker';
 import { createCompareOverlay } from './ui/CompareOverlay';
 import { createCreditsModal } from './ui/CreditsModal';
 import { createGlossaryDrawer } from './ui/GlossaryDrawer';
 import { createHeaderBar } from './ui/HeaderBar';
 import { createHomeOverlay } from './ui/HomeOverlay';
+import {
+  buildShareableViewUrl,
+  createDeveloperDebugHud,
+  CrossSectionController,
+  exportCanvasPng,
+  MeasureRulerTool,
+} from './ui/InspectTools';
+import { createLearningLabModal } from './ui/LearningLabModal';
 import { createLessonPanel } from './ui/LessonPanel';
 import { createQuizModal } from './ui/QuizModal';
 import { createTourOverlay } from './ui/TourOverlay';
@@ -69,13 +93,19 @@ async function bootstrap(): Promise<void> {
   let homePinEntries: ProjectedLabelEntry[] = [];
   let lastHomeLabelSignature: string | null = null;
   let activeLessonModel: SystemModelInstance | null = null;
+  let activeLessonOutline: LessonOutlineController | null = null;
   let selectedPartId: string | null = null;
   let tourFlowPhase = 0;
+  let isInitialCarBoot = true;
 
   let compareRig: CompareRigInstance | null = null;
+  let compareTransRig: CompareTransmissionsInstance | null = null;
+  let compareCategory: CompareCategory = 'drivetrains';
   let compareThrottle = 0.45;
   let comparePlaying = true;
   let compareMobileTab: DrivetrainId = 'petrol';
+  let compareTransMobileTab: CompareTransmissionId = 'manual';
+  let compareThirdSlot: 'cvt' | 'dct' = 'cvt';
 
   const lessonSim: SystemSimulationState = {
     playing: true,
@@ -94,8 +124,55 @@ async function bootstrap(): Promise<void> {
   const glossaryDrawer = createGlossaryDrawer(uiRoot);
   const creditsModal = createCreditsModal(uiRoot, []);
   const errorCard = createModelErrorCard(uiRoot);
+  const engineAudio = new EngineAudioSynth();
+  const crossSection = new CrossSectionController();
+  const measureRuler = new MeasureRulerTool(sceneManager.scene);
+  const devDebugHud = createDeveloperDebugHud(uiRoot);
+
+  const liveCaptionBar = document.createElement('div');
+  liveCaptionBar.className = 'live-caption-bar';
+  liveCaptionBar.hidden = true;
+  uiRoot.appendChild(liveCaptionBar);
+
+  const shareToast = document.createElement('div');
+  shareToast.className = 'share-toast';
+  shareToast.hidden = true;
+  uiRoot.appendChild(shareToast);
+
+  const showToast = (msg: string) => {
+    shareToast.textContent = msg;
+    shareToast.hidden = false;
+    window.setTimeout(() => {
+      shareToast.hidden = true;
+    }, 2400);
+  };
+
+  const learningLab = createLearningLabModal(uiRoot, {
+    onOpenSystemLesson: (sysId, faultId) => {
+      lessonSim.faultId = faultId ?? null;
+      void enterLesson(sysId, false, faultId ?? null);
+    },
+    onDriveUpdate: (d) => {
+      lessonSim.rpmOverride = d.rpm;
+      lessonSim.throttle = d.throttle;
+      lessonSim.brake = d.brake;
+      engineAudio.update({
+        rpm: d.rpm,
+        throttle: d.throttle,
+        cylinders: appStore.getSnapshot().selectedEngineConfig === 'v8' ? 8 : 4,
+        isEv: appStore.getSnapshot().activePowertrain === 'ev',
+      });
+    },
+  });
 
   const cleanupActiveSubMode = () => {
+    crossSection.clear();
+    measureRuler.setActive(false);
+    liveCaptionBar.hidden = true;
+    if (activeLessonOutline) {
+      activeLessonOutline.dispose();
+      activeLessonOutline = null;
+    }
     if (activeLessonModel) {
       sceneManager.scene.remove(activeLessonModel.root);
       activeLessonModel.dispose();
@@ -112,11 +189,16 @@ async function bootstrap(): Promise<void> {
       compareRig.dispose();
       compareRig = null;
     }
+    if (compareTransRig) {
+      sceneManager.setCustomRenderCallback(null);
+      compareTransRig.dispose();
+      compareTransRig = null;
+    }
     compareOverlay.close();
   };
 
   const selectRenderMode = (mode: RenderMode) => {
-    if (mode === 'solid' && carRig?.car.quality === 'outline-only') {
+    if (mode === 'solid' && carRig?.car.quality === 'outline-only' && appStore.getSnapshot().viewMode !== 'lesson') {
       return;
     }
     const quality = appStore.getSnapshot().graphicsQuality;
@@ -125,6 +207,7 @@ async function bootstrap(): Promise<void> {
     appStore.update({ renderMode: mode });
     const snap = appStore.getSnapshot();
     carRig?.setRenderMode(mode, snap.layers, snap.xrayCar, snap.reduceMotion);
+    activeLessonOutline?.setRenderMode(mode);
   };
 
   const toggleQuality = () => {
@@ -214,14 +297,56 @@ async function bootstrap(): Promise<void> {
     applyTourStep(startIndex);
   };
 
-  const enterCompare = async () => {
+  const loadCompareCategory = async (cat: CompareCategory) => {
+    compareCategory = cat;
+    if (compareRig) {
+      compareRig.dispose();
+      compareRig = null;
+    }
+    if (compareTransRig) {
+      compareTransRig.dispose();
+      compareTransRig = null;
+    }
+    if (cat === 'transmissions') {
+      const { createCompareTransmissions } = await import('./models/compare/transmissions');
+      compareTransRig = createCompareTransmissions(sceneManager.scene.environment);
+      cameraRig.focusAt(
+        new THREE.Vector3(0.05, 0.72, 0),
+        new THREE.Vector3(1.65, 1.48, 3.05),
+        appStore.getSnapshot().reduceMotion,
+      );
+      sceneManager.setCustomRenderCallback((renderer, width, height) => {
+        compareTransRig?.render(
+          renderer,
+          sceneManager.camera,
+          width,
+          height,
+          compareTransMobileTab,
+          compareThirdSlot,
+        );
+      });
+    } else {
+      const { createCompareDrivetrains } = await import('./models/compare/drivetrains');
+      compareRig = createCompareDrivetrains(sceneManager.scene.environment);
+      cameraRig.focusAt(
+        new THREE.Vector3(0, 0.48, 0),
+        new THREE.Vector3(0.45, 1.38, 2.85),
+        appStore.getSnapshot().reduceMotion,
+      );
+      sceneManager.setCustomRenderCallback((renderer, width, height) => {
+        compareRig?.render(renderer, sceneManager.camera, width, height, compareMobileTab);
+      });
+    }
+  };
+
+  const enterCompare = async (initialCat: CompareCategory = 'drivetrains') => {
     cleanupActiveSubMode();
     appStore.update({
       viewMode: 'compare',
       activeLesson: null,
       selectedSystem: null,
       loadingPercent: 30,
-      loadingLabel: 'Loading Petrol vs Diesel vs Electric drivetrains…',
+      loadingLabel: 'Loading side-by-side comparison…',
       carReady: false,
     });
 
@@ -233,17 +358,8 @@ async function bootstrap(): Promise<void> {
     labelLayer.innerHTML = '';
 
     try {
-      const { createCompareDrivetrains } = await import('./models/compare/drivetrains');
-      compareRig = createCompareDrivetrains(sceneManager.scene.environment);
-      compareOverlay.open();
-      cameraRig.focusAt(
-        new THREE.Vector3(0, 0.48, 0),
-        new THREE.Vector3(0.45, 1.38, 2.85),
-        appStore.getSnapshot().reduceMotion,
-      );
-      sceneManager.setCustomRenderCallback((renderer, width, height) => {
-        compareRig?.render(renderer, sceneManager.camera, width, height, compareMobileTab);
-      });
+      await loadCompareCategory(initialCat);
+      compareOverlay.open(initialCat);
       appStore.update({ carReady: true, loadingPercent: 100, loadingLabel: 'Ready' });
     } catch (err) {
       console.error('Failed to load Compare mode:', err);
@@ -255,6 +371,7 @@ async function bootstrap(): Promise<void> {
     if (appStore.getSnapshot().viewMode === 'lesson' && activeLessonModel) {
       lessonSim.xray = !lessonSim.xray;
       activeLessonModel.setXRay(lessonSim.xray);
+      activeLessonOutline?.setXRay(lessonSim.xray);
       return;
     }
     const next = !appStore.getSnapshot().xrayCar;
@@ -269,21 +386,79 @@ async function bootstrap(): Promise<void> {
     cameraRig.setReduceMotion(next);
   };
 
+  const syncVariantToUrl = (systemId: SystemId, variant: string) => {
+    try {
+      const nextUrl = new URL(window.location.href);
+      if (systemId === 'transmission') nextUrl.searchParams.set('trans', variant);
+      else if (systemId === 'engine') nextUrl.searchParams.set('engine', variant);
+      window.history.replaceState(null, '', nextUrl.toString());
+    } catch {
+      // Ignore URL update error
+    }
+  };
+
+  const handleVariantChange = async (systemId: SystemId, nextVariant: string) => {
+    if (systemId === 'transmission') {
+      appStore.update({ selectedTransmission: nextVariant as TransmissionType });
+    } else if (systemId === 'engine') {
+      appStore.update({ selectedEngineConfig: nextVariant as EngineLayout });
+    }
+    syncVariantToUrl(systemId, nextVariant);
+
+    const activeCar =
+      carsManifest.find((c) => c.id === appStore.getSnapshot().selectedCarId) ?? carRig?.car ?? null;
+
+    if (carRig) {
+      await carRig.replaceSystemVariant(systemId, nextVariant);
+      if (systemId === 'engine') {
+        await Promise.all([
+          carRig.replaceSystemVariant('cooling', nextVariant),
+          carRig.replaceSystemVariant('exhaust', nextVariant),
+        ]);
+      }
+      carRig.setExplode(appStore.getSnapshot().homeExplode);
+      homeOverlay.setAvailableSystems(
+        carRig.availableSystems,
+        carRig.car.powertrain,
+        activeCar,
+      );
+      if (appStore.getSnapshot().viewMode === 'home') {
+        syncHomeLabels(true);
+      }
+    }
+
+    if (appStore.getSnapshot().viewMode === 'lesson' && appStore.getSnapshot().activeLesson === systemId) {
+      await enterLesson(systemId, true);
+    }
+  };
+
   const lessonPanel = createLessonPanel(uiRoot, labelLayer, {
     onBackToCar: () => exitLesson(),
     onSelectPart: (partId) => {
       selectedPartId = partId;
       activeLessonModel?.highlightPart(partId);
+      activeLessonOutline?.highlightPart(partId);
       lessonPanel.highlightPartUI(partId);
     },
     onSimChange: (patch) => {
       Object.assign(lessonSim, patch);
-      if (patch.explode !== undefined) {
-        activeLessonModel?.setExplode(patch.explode);
+      if (patch.explode !== undefined && activeLessonModel) {
+        activeLessonModel.root.position.y = patch.explode * 0.55;
+        activeLessonModel.setExplode(patch.explode);
       }
       if (patch.xray !== undefined) {
         activeLessonModel?.setXRay(patch.xray);
+        activeLessonOutline?.setXRay(patch.xray);
       }
+    },
+    onChangeVariant: (sysId, nextVar) => {
+      void handleVariantChange(sysId, nextVar);
+    },
+    onChangeClip: (axis, ratio) => {
+      crossSection.apply(axis, ratio);
+    },
+    onToggleRuler: (active) => {
+      measureRuler.setActive(active);
     },
     onToggleLabels: (visible) => {
       labelProjector.setVisible(visible);
@@ -311,13 +486,37 @@ async function bootstrap(): Promise<void> {
     onSelectMobileTab: (id) => {
       compareMobileTab = id;
     },
+    onChangeCategory: (cat) => {
+      void loadCompareCategory(cat);
+    },
+    onSelectMobileTransTab: (id) => {
+      compareTransMobileTab = id;
+    },
+    onChangeThirdTransSlot: (slot) => {
+      compareThirdSlot = slot;
+    },
     onExitCompare: resetHome,
   });
 
-  const enterLesson = async (systemId: SystemId) => {
+  const enterLesson = async (
+    systemId: SystemId,
+    preserveCameraAndPart = false,
+    faultId: string | null = null,
+  ) => {
+    const prevPartId = preserveCameraAndPart ? selectedPartId : null;
+    const prevSim = preserveCameraAndPart ? { ...lessonSim } : null;
+    const snapBefore = appStore.getSnapshot();
+    const powertrain = snapBefore.activePowertrain;
+    const variant = getActiveSystemVariant(snapBefore, systemId);
+    const activeCar =
+      carsManifest.find((c) => c.id === snapBefore.selectedCarId) ?? carRig?.car ?? null;
+    const meta = getSystemMetadata(systemId, powertrain, variant);
+
+    if (preserveCameraAndPart && activeLessonModel && !snapBefore.reduceMotion) {
+      canvas.style.opacity = '0.35';
+    }
+
     cleanupActiveSubMode();
-    const powertrain = appStore.getSnapshot().activePowertrain;
-    const meta = getSystemMetadata(systemId, powertrain);
     appStore.update({
       viewMode: 'lesson',
       activeLesson: systemId,
@@ -334,43 +533,102 @@ async function bootstrap(): Promise<void> {
     labelLayer.innerHTML = '';
 
     try {
-      const model = await loadSystemModule(systemId, powertrain);
+      const model = await loadSystemModule(systemId, powertrain, variant);
       activeLessonModel = model;
-      selectedPartId = null;
 
-      lessonSim.playing = true;
-      lessonSim.speed = 1;
-      lessonSim.explode = appStore.getSnapshot().homeExplode;
-      lessonSim.xray = false;
-      lessonSim.reduceMotion = appStore.getSnapshot().reduceMotion;
+      if (prevSim) {
+        Object.assign(lessonSim, prevSim);
+      } else {
+        const curSnap = appStore.getSnapshot();
+        lessonSim.playing = true;
+        lessonSim.speed = 1;
+        lessonSim.explode = 0;
+        lessonSim.xray = false;
+        lessonSim.reduceMotion = curSnap.reduceMotion;
+        lessonSim.rpmOverride = null;
+        lessonSim.aspiration = curSnap.engineAspiration;
+        lessonSim.injection = curSnap.engineInjection;
+        lessonSim.hybrid = curSnap.engineHybrid;
+        lessonSim.brakeType = curSnap.brakeType;
+        lessonSim.suspensionType = curSnap.suspensionType;
+        lessonSim.steeringType = curSnap.steeringType;
+        lessonSim.drivetrainLayout = curSnap.drivetrainLayout;
+        lessonSim.differentialMode = curSnap.differentialMode;
+        lessonSim.brake = 0;
+        lessonSim.roadBump = 1;
+        lessonSim.faultId = faultId;
+      }
 
+      model.root.position.y = lessonSim.explode * 0.55;
       model.setExplode(lessonSim.explode);
+      model.setXRay(lessonSim.xray);
       sceneManager.scene.add(model.root);
+      crossSection.attach(model.root);
 
-      const partPins = lessonPanel.open(systemId, lessonSim, model.labelAnchors);
+      const vp = sceneManager.getViewportSize();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const xrayPartIds =
+        systemId === 'engine'
+          ? ['cylinder-block']
+          : systemId === 'transmission'
+            ? ['casing']
+            : systemId === 'brakes'
+              ? ['caliper']
+              : ['engine-jacket', 'thermostat', 'battery', 'alternator', 'catalytic-converter', 'muffler', 'steering-rack', 'shock-damper'];
+      activeLessonOutline = createLessonOutlineController(
+        model.root,
+        new THREE.Vector2(vp.width * dpr, vp.height * dpr),
+        xrayPartIds,
+      );
+      activeLessonOutline.setRenderMode(appStore.getSnapshot().renderMode);
+      activeLessonOutline.setXRay(lessonSim.xray);
+
+      // Keep selected part if it still exists in the swapped variant
+      const partExists =
+        prevPartId !== null &&
+        (model.labelAnchors.some((a) => a.partId === prevPartId) ||
+          model.partObjects.some((o) => o.userData.partId === prevPartId));
+      selectedPartId = partExists ? prevPartId : null;
+      model.highlightPart(selectedPartId);
+      activeLessonOutline.highlightPart(selectedPartId);
+
+      const partPins = lessonPanel.open(
+        systemId,
+        lessonSim,
+        model.labelAnchors,
+        activeCar,
+        preserveCameraAndPart,
+      );
+      if (selectedPartId) {
+        lessonPanel.highlightPartUI(selectedPartId);
+      }
       labelProjector.setVisible(true);
       labelProjector.setEntries(partPins);
 
-      const isDesktop = stageEl.clientWidth > 768;
-      const target = new THREE.Vector3(...model.defaultCamera.target);
-      const camPos = new THREE.Vector3(...model.defaultCamera.position);
-      if (isDesktop) {
-        const forward = target.clone().sub(camPos).normalize();
-        const camRight = new THREE.Vector3()
-          .crossVectors(forward, new THREE.Vector3(0, 1, 0))
-          .normalize();
-        target.addScaledVector(camRight, 0.62);
-        camPos.addScaledVector(camRight, 0.35);
-      } else {
-        target.y -= lessonPanel.isMobileCollapsed() ? 0.16 : 0.65;
-        camPos.multiplyScalar(1.32);
+      if (!preserveCameraAndPart) {
+        const isDesktop = stageEl.clientWidth > 768;
+        const target = new THREE.Vector3(...model.defaultCamera.target);
+        const camPos = new THREE.Vector3(...model.defaultCamera.position);
+        if (isDesktop) {
+          const forward = target.clone().sub(camPos).normalize();
+          const camRight = new THREE.Vector3()
+            .crossVectors(forward, new THREE.Vector3(0, 1, 0))
+            .normalize();
+          target.addScaledVector(camRight, 0.62);
+          camPos.addScaledVector(camRight, 0.35);
+        } else {
+          target.y -= lessonPanel.isMobileCollapsed() ? 0.16 : 0.65;
+          camPos.multiplyScalar(1.32);
+        }
+        cameraRig.focusAt(target, camPos, appStore.getSnapshot().reduceMotion);
       }
-      cameraRig.focusAt(target, camPos, appStore.getSnapshot().reduceMotion);
 
       appStore.update({ carReady: true, loadingPercent: 100, loadingLabel: 'Ready' });
     } catch (err) {
       console.error('Failed to load lesson module:', err);
       exitLesson();
+    } finally {
+      canvas.style.opacity = '1';
     }
   };
 
@@ -413,6 +671,27 @@ async function bootstrap(): Promise<void> {
     onOpenGlossary: () => {
       if (glossaryDrawer.isOpen()) glossaryDrawer.close();
       else glossaryDrawer.open();
+    },
+    onOpenLab: () => {
+      if (learningLab.isOpen()) learningLab.close();
+      else learningLab.open();
+    },
+    onToggleAudio: () => {
+      const next = !appStore.getSnapshot().audioEnabled;
+      appStore.update({ audioEnabled: next });
+      engineAudio.setEnabled(next);
+    },
+    onShareView: () => {
+      const shareUrl = buildShareableViewUrl(sceneManager.camera, cameraRig.controls.target);
+      window.history.replaceState(null, '', shareUrl);
+      void navigator.clipboard?.writeText(shareUrl).catch(() => {});
+      exportCanvasPng(
+        sceneManager.renderer,
+        sceneManager.scene,
+        sceneManager.camera,
+        `howcarswork-${appStore.getSnapshot().selectedCarId}.png`,
+      );
+      showToast('Share URL copied & PNG snapshot saved');
     },
     onResetView: resetHome,
     onToggleXRay: toggleXRay,
@@ -487,6 +766,9 @@ async function bootstrap(): Promise<void> {
     onStartAnimation: (id) => {
       void enterLesson(id);
     },
+    onChangeVariant: (sysId, nextVar) => {
+      void handleVariantChange(sysId, nextVar);
+    },
     onStartTour: () => {
       enterTour(0);
     },
@@ -502,6 +784,7 @@ async function bootstrap(): Promise<void> {
       else creditsModal.open();
     },
     getSelectedPartInfo: (systemId, partId) => carRig?.getRigPartInfo(systemId, partId) ?? null,
+    getSystemBayWarning: (systemId) => carRig?.getSystemBayWarning(systemId),
     onClearSelectedPart: () => {
       appStore.update({ selectedPartId: null });
       carRig?.selectPart(null, null);
@@ -524,22 +807,15 @@ async function bootstrap(): Promise<void> {
     if (!carRig) return;
     const snap = appStore.getSnapshot();
     if (snap.viewMode !== 'home') return;
-    const useExplodedParts = snap.selectedSystem !== null && snap.homeExplode >= 0.08;
-    const sig = useExplodedParts ? `parts:${snap.selectedSystem}` : 'hotspots';
+    // Home Exploded slider explodes car parts rather than sub-parts, so keep car system pins active
+    const sig = 'hotspots';
     if (!force && sig === lastHomeLabelSignature) return;
     lastHomeLabelSignature = sig;
-    if (useExplodedParts && snap.selectedSystem) {
-      homePinEntries = homeOverlay.createExplodedPartPins(
-        snap.selectedSystem,
-        carRig.getExplodedPartLabels(snap.selectedSystem),
-      );
-    } else {
-      homePinEntries = homeOverlay.createHotspotPins(
-        carRig.anchors,
-        carRig.outwardNormals,
-        carRig.systemAnchorObjects,
-      );
-    }
+    homePinEntries = homeOverlay.createHotspotPins(
+      carRig.anchors,
+      carRig.outwardNormals,
+      carRig.systemAnchorObjects,
+    );
     labelProjector.setVisible(true);
     labelProjector.setEntries(homePinEntries);
   }
@@ -601,6 +877,21 @@ async function bootstrap(): Promise<void> {
 
     try {
       const snap = appStore.getSnapshot();
+      const urlOverride = isInitialCarBoot ? hasUrlVariantOverride() : { trans: false, engine: false };
+      isInitialCarBoot = false;
+      const nextTrans = resolveCarTransmission(
+        car,
+        urlOverride.trans ? snap.selectedTransmission : undefined,
+      );
+      const nextEngine = resolveCarEngine(
+        car,
+        urlOverride.engine ? snap.selectedEngineConfig : undefined,
+      );
+      appStore.update({
+        selectedTransmission: nextTrans,
+        selectedEngineConfig: nextEngine,
+      });
+
       const effectiveMode = isOutlineOnly ? 'outline' : snap.renderMode;
       sceneManager.renderer.shadowMap.enabled =
         effectiveMode === 'solid' && snap.graphicsQuality === 'high';
@@ -620,6 +911,12 @@ async function bootstrap(): Promise<void> {
         snap.isolationMode,
         snap.paintColor,
         snap.graphicsQuality,
+        {
+          transmission: car.powertrain === 'ev' ? 'ev-reducer' : nextTrans,
+          engine: nextEngine,
+          cooling: nextEngine,
+          exhaust: nextEngine,
+        },
       );
 
       if (token !== carSwitchToken) {
@@ -632,7 +929,7 @@ async function bootstrap(): Promise<void> {
       const vp = sceneManager.getViewportSize();
       carRig.setResolution(vp.width, vp.height);
 
-      homeOverlay.setAvailableSystems(carRig.availableSystems, car.powertrain);
+      homeOverlay.setAvailableSystems(carRig.availableSystems, car.powertrain, car);
 
       const postSnap = appStore.getSnapshot();
       const preservedSystem =
@@ -823,11 +1120,17 @@ async function bootstrap(): Promise<void> {
     if (mode === 'lesson' && activeLessonModel) {
       const hits = raycaster.intersectObjects(activeLessonModel.partObjects, true);
       if (hits.length > 0) {
+        if (measureRuler.isActive()) {
+          const msg = measureRuler.recordPoint(hits[0].point);
+          if (msg) lessonPanel.setRulerStatus(msg);
+          return;
+        }
         const partId = hits[0].object.userData.partId as string | undefined;
         if (partId) {
           const nextId = selectedPartId === partId ? null : partId;
           selectedPartId = nextId;
           activeLessonModel.highlightPart(nextId);
+          activeLessonOutline?.highlightPart(nextId);
           lessonPanel.highlightPartUI(nextId);
         }
       }
@@ -874,7 +1177,15 @@ async function bootstrap(): Promise<void> {
   });
 
   window.addEventListener('keydown', (e) => {
+    if (e.key === '`') {
+      devDebugHud.toggle();
+      return;
+    }
     if (e.key === 'Escape') {
+      if (learningLab.isOpen()) {
+        learningLab.close();
+        return;
+      }
       if (carPicker.isOpen()) {
         carPicker.close(true);
         return;
@@ -931,12 +1242,53 @@ async function bootstrap(): Promise<void> {
     const state = appStore.getSnapshot();
     if (state.viewMode === 'lesson' && activeLessonModel) {
       const status = activeLessonModel.update(dt, lessonSim);
-      lessonPanel.setPhaseStatus(status.phaseIndex);
-    } else if (state.viewMode === 'tour' && carRig) {
+      lessonPanel.setPhaseStatus(status);
+      if (state.renderMode === 'outline') {
+        activeLessonOutline?.syncDynamicGeometries();
+      }
+      if (state.audioEnabled) {
+        engineAudio.update({
+          rpm: status.rpm ?? 1800,
+          throttle: lessonSim.throttle ?? 0.35,
+          cylinders: state.selectedEngineConfig === 'v8' ? 8 : 4,
+          isEv: state.activePowertrain === 'ev',
+        });
+      }
+      if (state.captionsEnabled) {
+        liveCaptionBar.hidden = false;
+        const parts: string[] = [];
+        if (status.statusText) parts.push(status.statusText);
+        if (status.activeGear) parts.push(`Gear: ${status.activeGear}`);
+        if (status.rpm) parts.push(`${Math.round(status.rpm)} RPM`);
+        liveCaptionBar.textContent = parts.join(' · ') || 'System animation active';
+      } else {
+        liveCaptionBar.hidden = true;
+      }
+    } else if (
+      state.viewMode === 'home' &&
+      carRig &&
+      state.selectedSystem &&
+      state.layers.innerSystems &&
+      state.homeExplode <= 0.01
+    ) {
+      carRig.updateActiveSystem(state.selectedSystem, dt, true, state.reduceMotion);
+    }
+
+    const partCount =
+      state.viewMode === 'lesson' && activeLessonModel
+        ? activeLessonModel.partObjects.length
+        : carRig
+          ? carRig.rigPickMeshes.length
+          : 0;
+    devDebugHud.recordFrame(dt, sceneManager.renderer, partCount);
+
+    if (state.viewMode === 'tour' && carRig) {
       tourFlowPhase += dt * (state.reduceMotion ? 0.12 : 0.34);
       carRig.setTourFlow(true, tourFlowPhase);
-    } else if (state.viewMode === 'compare' && compareRig) {
+    } else if (state.viewMode === 'compare' && compareCategory === 'drivetrains' && compareRig) {
       compareRig.update(dt, compareThrottle, comparePlaying, state.reduceMotion);
+    } else if (state.viewMode === 'compare' && compareCategory === 'transmissions' && compareTransRig) {
+      compareTransRig.update(dt, compareThrottle, comparePlaying, state.reduceMotion);
     }
 
     if (state.viewMode !== 'compare') {
@@ -960,6 +1312,7 @@ async function bootstrap(): Promise<void> {
   let wasPortrait = stageEl.clientWidth < Math.max(stageEl.clientHeight, 1) * 0.95;
   sceneManager.setResizeCallback((width, height) => {
     carRig?.setResolution(width, height);
+    activeLessonOutline?.setResolution(width, height);
     const isPortraitNow = width < Math.max(height, 1) * 0.95;
     if (isPortraitNow !== wasPortrait) {
       wasPortrait = isPortraitNow;
@@ -995,6 +1348,37 @@ async function bootstrap(): Promise<void> {
         appStore.getSnapshot().selectedCarId,
       );
       await switchCar(initialCar, { preserveSystem: false, updateUrl: false });
+
+      // Restore deep-linked system / lesson / explode / camera pose if present in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlMode = urlParams.get('mode');
+      if (urlMode === 'outline' || urlMode === 'solid') {
+        selectRenderMode(urlMode);
+      }
+      const urlLesson = urlParams.get('lesson') as SystemId | null;
+      const urlSys = urlParams.get('sys') as SystemId | null;
+      const urlExp = Number(urlParams.get('exp'));
+      if (Number.isFinite(urlExp) && urlExp > 0) {
+        const clampedExp = Math.max(0, Math.min(1, urlExp));
+        appStore.update({ homeExplode: clampedExp });
+        carRig?.setExplode(clampedExp);
+      }
+      if (urlLesson && carRig?.availableSystems.includes(urlLesson)) {
+        await enterLesson(urlLesson);
+      } else if (urlSys && carRig?.availableSystems.includes(urlSys)) {
+        selectSystem(urlSys);
+      }
+      const camStr = urlParams.get('cam');
+      if (camStr) {
+        const nums = camStr.split(',').map(Number);
+        if (nums.length === 6 && nums.every(Number.isFinite)) {
+          cameraRig.focusAt(
+            new THREE.Vector3(nums[3], nums[4], nums[5]),
+            new THREE.Vector3(nums[0], nums[1], nums[2]),
+            true,
+          );
+        }
+      }
     } catch (err) {
       console.error('Failed to initialize vehicle manifest:', err);
       appStore.update({

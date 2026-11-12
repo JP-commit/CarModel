@@ -159,11 +159,16 @@ export interface ExplodableEntry {
  * Applies an explosion factor (0..1) relative to each part's base position.
  * Useful when parts also animate around their animated pivot or local origin.
  */
-export function applyExplodeOffsets(entries: ExplodableEntry[], amount: number): void {
+export function applyExplodeOffsets(
+  entries: ExplodableEntry[],
+  amount: number,
+  spreadMultiplier = 1.65,
+): void {
+  const scaled = Math.max(0, Math.min(1, amount)) * spreadMultiplier;
   for (const entry of entries) {
     entry.object.position
       .copy(entry.basePosition)
-      .addScaledVector(entry.explodeOffset, amount);
+      .addScaledVector(entry.explodeOffset, scaled);
   }
 }
 

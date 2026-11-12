@@ -1,5 +1,16 @@
-import * as THREE from 'three';
-import type { Powertrain } from '../../state/appState';
+import type * as THREE from 'three';
+import type {
+  BrakeType,
+  DifferentialMode,
+  DrivetrainLayout,
+  EngineAspiration,
+  EngineHybrid,
+  EngineInjection,
+  Powertrain,
+  SteeringType,
+  SuspensionType,
+  SystemId,
+} from '../../state/appState';
 import type { ExplodableEntry } from '../ProceduralHelpers';
 
 export interface SystemLabelAnchor {
@@ -14,24 +25,49 @@ export interface SystemSimulationState {
   explode: number;
   xray: boolean;
   reduceMotion: boolean;
+  rpmOverride?: number | null;
+  throttle?: number;
+  brake?: number;
+  gradePct?: number;
+  roadBump?: number;
+  faultId?: string | null;
+  aspiration?: EngineAspiration;
+  injection?: EngineInjection;
+  hybrid?: EngineHybrid;
+  drivetrainLayout?: DrivetrainLayout;
+  differentialMode?: DifferentialMode;
+  brakeType?: BrakeType;
+  suspensionType?: SuspensionType;
+  steeringType?: SteeringType;
 }
 
 export interface SystemFrameStatus {
   phaseIndex?: number;
   statusText?: string;
+  phaseLabel?: string;
+  rpm?: number;
+  activeGear?: string;
+  gearRatio?: number;
+  powerFlowPct?: number;
+  firingCylinder?: number;
+  brakeTempC?: number;
+  torqueNm?: number;
+  powerKw?: number;
+  headNod?: boolean;
+  caption?: string;
 }
 
 export interface SystemModelInstance {
   root: THREE.Group;
+  variant?: string;
+  naturalBounds?: { length: number; width: number; height: number };
+  targetRigExtent?: number;
   defaultCamera: {
-    target: [number, number, number];
     position: [number, number, number];
+    target: [number, number, number];
   };
-  /** Interactive sub-trees tagged with userData.partId for raycasting */
   partObjects: THREE.Object3D[];
-  /** Anchors for 3D-projected part labels */
   labelAnchors: SystemLabelAnchor[];
-  /** Semantic parts map for rig inspection & per-part explode */
   explodables?: ExplodableEntry[];
   update: (dt: number, sim: SystemSimulationState) => SystemFrameStatus;
   highlightPart: (partId: string | null) => void;
@@ -40,7 +76,13 @@ export interface SystemModelInstance {
   dispose: () => void;
 }
 
-export type SystemModuleLoader = () => Promise<{
-  createSystemModel: (powertrain?: Powertrain) => SystemModelInstance;
-}>;
+export type SystemModuleLoader = (
+  powertrain: Powertrain,
+  variant?: string,
+) => SystemModelInstance;
 
+export interface SystemRegistryKey {
+  systemId: SystemId;
+  powertrain: Powertrain;
+  variant?: string;
+}

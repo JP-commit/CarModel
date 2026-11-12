@@ -1,4 +1,4 @@
-import type { Powertrain, SystemId } from '../state/appState';
+import type { EngineLayout, Powertrain, SystemId, TransmissionType } from '../state/appState';
 
 export interface CarSystemManifest {
   anchorNode?: string;
@@ -34,6 +34,10 @@ export interface CarManifestEntry {
   name: string;
   bodyType: string;
   powertrain: Powertrain;
+  defaultTransmission?: TransmissionType;
+  defaultEngine?: EngineLayout;
+  allowedTransmissions?: TransmissionType[];
+  allowedEngines?: EngineLayout[];
   style?: CarStyle;
   quality?: CarQuality;
   modelFile: string;
@@ -52,6 +56,47 @@ export interface CarManifestEntry {
     license: string;
     source: string;
   };
+}
+
+export function getAllowedTransmissions(car: CarManifestEntry): TransmissionType[] {
+  if (car.allowedTransmissions && car.allowedTransmissions.length > 0) {
+    return car.allowedTransmissions;
+  }
+  if (car.powertrain === 'ev') return ['ev-reducer'];
+  return ['manual', 'amt', 'at', 'cvt', 'dct'];
+}
+
+export function getAllowedEngines(car: CarManifestEntry): EngineLayout[] {
+  if (car.powertrain === 'ev') return [];
+  if (car.allowedEngines && car.allowedEngines.length > 0) {
+    return car.allowedEngines;
+  }
+  return ['single-cylinder', 'i3', 'i4', 'i6', 'v6', 'v8', 'flat-4'];
+}
+
+export function resolveCarTransmission(
+  car: CarManifestEntry,
+  preferred?: TransmissionType,
+): TransmissionType {
+  const allowed = getAllowedTransmissions(car);
+  if (preferred && allowed.includes(preferred)) return preferred;
+  if (car.defaultTransmission && allowed.includes(car.defaultTransmission)) {
+    return car.defaultTransmission;
+  }
+  return allowed[0] ?? (car.powertrain === 'ev' ? 'ev-reducer' : 'manual');
+}
+
+export function resolveCarEngine(
+  car: CarManifestEntry,
+  preferred?: EngineLayout,
+): EngineLayout {
+  const allowed = getAllowedEngines(car);
+  if (allowed.length === 0) return 'single-cylinder';
+  if (preferred && allowed.includes(preferred)) return preferred;
+  if (car.defaultEngine && allowed.includes(car.defaultEngine)) {
+    return car.defaultEngine;
+  }
+  return allowed[0] ?? 'single-cylinder';
 }
 
 export const POWERTRAIN_LABELS: Record<Powertrain, string> = {

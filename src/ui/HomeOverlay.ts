@@ -1,10 +1,13 @@
 import type * as THREE from 'three';
+import type { CarManifestEntry } from '../data/cars';
 import { getSystemMetadata, SYSTEMS } from '../data/systems';
 import type { RigPartLabelEntry, RigPartMetadata } from '../models/rig';
 import { isLessonImplemented } from '../models/systems/registry';
 import type { ProjectedLabelEntry } from '../scene/LabelProjector';
 import {
   appStore,
+  getActiveSystemVariant,
+  getSavedQuizScore,
   type IsolationMode,
   type LayerVisibility,
   type Powertrain,
@@ -12,6 +15,7 @@ import {
 } from '../state/appState';
 import { SYSTEM_ICONS } from './icons';
 import { bindMobileSheetGesture } from './mobileSheet';
+import { bindVariantPickerEvents, renderVariantPickerMarkup } from './variantPicker';
 
 export interface HomeOverlayActions {
   onSelectSystem: (id: SystemId) => void;
@@ -22,11 +26,13 @@ export interface HomeOverlayActions {
   onSelectExplodedPart?: (systemId: SystemId, partId: string) => void;
   onToggleLayer: (layer: keyof LayerVisibility, visible: boolean) => void;
   onStartAnimation: (id: SystemId) => void;
+  onChangeVariant?: (systemId: SystemId, variant: string) => void;
   onStartTour: () => void;
   onDismissHint: () => void;
   onChangePaintColor: (colorHex: string) => void;
   onOpenCredits: () => void;
   getSelectedPartInfo?: (systemId: SystemId, partId: string) => RigPartMetadata | null;
+  getSystemBayWarning?: (systemId: SystemId) => string | undefined;
   onClearSelectedPart?: () => void;
 }
 
@@ -42,7 +48,11 @@ const PAINT_SWATCHES: { id: string; label: string; color: string }[] = [
 ];
 
 export interface HomeOverlayHandle {
-  setAvailableSystems: (ids: SystemId[], powertrain?: Powertrain) => void;
+  setAvailableSystems: (
+    ids: SystemId[],
+    powertrain?: Powertrain,
+    car?: CarManifestEntry | null,
+  ) => void;
   createHotspotPins: (
     anchors: Partial<Record<SystemId, THREE.Vector3>>,
     outwardNormals: Partial<Record<SystemId, THREE.Vector3>>,
@@ -121,6 +131,9 @@ export function createHomeOverlay(
             ✕
           </button>
         </div>
+
+        <div id="home-variant-slot"></div>
+        <div class="bay-warning-banner" id="home-bay-warning" hidden></div>
 
         <p class="panel-summary" id="panel-summary"></p>
 
@@ -211,7 +224,7 @@ export function createHomeOverlay(
       <span class="paint-picker-label">Paint</span>
       <div class="paint-swatches">
         ${PAINT_SWATCHES.map(
-          (sw) => `
+    (sw) => `
             <button
               type="button"
               class="paint-swatch${sw.color === 'original' ? ' paint-swatch--factory' : ''}"
@@ -222,7 +235,7 @@ export function createHomeOverlay(
               ${sw.color !== 'original' ? `style="background:${sw.color}"` : ''}
             ></button>
           `,
-        ).join('')}
+  ).join('')}
       </div>
     </div>
 
@@ -278,6 +291,8 @@ export function createHomeOverlay(
   const btnHomeSheetToggle = main.querySelector<HTMLButtonElement>('#btn-home-sheet-toggle')!;
   const panelEyebrow = main.querySelector<HTMLElement>('#panel-eyebrow')!;
   const panelTitle = main.querySelector<HTMLElement>('#panel-title')!;
+  const homeVariantSlot = main.querySelector<HTMLElement>('#home-variant-slot')!;
+  const homeBayWarning = main.querySelector<HTMLElement>('#home-bay-warning')!;
   const panelSummary = main.querySelector<HTMLElement>('#panel-summary')!;
   const panelKeyParts = main.querySelector<HTMLElement>('#panel-key-parts')!;
   const selectedPartCard = main.querySelector<HTMLElement>('#selected-part-card')!;
@@ -323,6 +338,8 @@ export function createHomeOverlay(
   const mobileSwipeRailEl = main.querySelector<HTMLElement>('.mobile-swipe-rail')!;
   let availableIds: SystemId[] = SYSTEMS.map((s) => s.id);
   let currentPowertrain: Powertrain = 'petrol';
+  let currentCar: CarManifestEntry | null = null;
+  let lastVariantSignature = '';
   let railButtons: HTMLButtonElement[] = [];
   let swipeButtons: HTMLButtonElement[] = [];
   const hotspotWraps = new Map<SystemId, HTMLElement>();
@@ -346,8 +363,12 @@ export function createHomeOverlay(
   };
 
   const renderSystemNavs = () => {
+    const snap = appStore.getSnapshot();
     const orderedSystems = availableIds
-      .map((id, idx) => ({ meta: getSystemMetadata(id, currentPowertrain), order: idx + 1 }))
+      .map((id, idx) => ({
+        meta: getSystemMetadata(id, currentPowertrain, getActiveSystemVariant(snap, id)),
+        order: idx + 1,
+      }))
       .filter((item) => Boolean(item.meta));
 
     systemRailEl.innerHTML = orderedSystems
@@ -495,15 +516,32 @@ export function createHomeOverlay(
     }
 
     if (activeId) {
-      const meta = getSystemMetadata(activeId, currentPowertrain);
+      const variant = getActiveSystemVariant(state, activeId);
+      const meta = getSystemMetadata(activeId, currentPowertrain, variant);
       const orderIdx = Math.max(1, availableIds.indexOf(activeId) + 1);
       const totalCount = Math.max(1, availableIds.length);
-      const savedQuiz =
-        state.quizProgress[`${currentPowertrain}:${activeId}`] ??
-        (currentPowertrain === 'petrol' ? state.quizProgress[activeId] : undefined);
+      const savedQuiz = getSavedQuizScore(state.quizProgress, activeId, currentPowertrain, variant);
       const scoreBadge = savedQuiz ? ` · Quiz ${savedQuiz.bestScore}/${savedQuiz.total}` : '';
       panelEyebrow.textContent = `SYSTEM ${String(orderIdx).padStart(2, '0')} OF ${String(totalCount).padStart(2, '0')}${scoreBadge}`;
       panelTitle.textContent = meta.name;
+
+      const variantSig = `${currentCar?.id ?? 'default'}:${currentPowertrain}:${activeId}:${variant ?? ''}`;
+      if (variantSig !== lastVariantSignature) {
+        lastVariantSignature = variantSig;
+        homeVariantSlot.innerHTML = renderVariantPickerMarkup('home', activeId, currentCar);
+        bindVariantPickerEvents(homeVariantSlot, (nextVar) => {
+          actions.onChangeVariant?.(activeId, nextVar);
+        });
+      }
+
+      const bayWarn = actions.getSystemBayWarning?.(activeId);
+      if (bayWarn) {
+        homeBayWarning.textContent = bayWarn;
+        homeBayWarning.hidden = false;
+      } else {
+        homeBayWarning.hidden = true;
+      }
+
       panelSummary.textContent = meta.plainEnglish;
       panelAnalogy.textContent = meta.analogy;
       panelKeyParts.innerHTML = meta.keyParts
@@ -528,6 +566,11 @@ export function createHomeOverlay(
       btnStartAnim.title = `Open interactive 3D ${meta.name} cutaway`;
     } else {
       selectedPartCard.hidden = true;
+      homeBayWarning.hidden = true;
+      if (lastVariantSignature !== '') {
+        lastVariantSignature = '';
+        homeVariantSlot.innerHTML = '';
+      }
     }
 
     if (!isHome) {
@@ -581,7 +624,8 @@ export function createHomeOverlay(
     const entries: ProjectedLabelEntry[] = [];
 
     orderedIds.forEach((sysId, index) => {
-      const sys = getSystemMetadata(sysId, currentPowertrain);
+      const snap = appStore.getSnapshot();
+      const sys = getSystemMetadata(sysId, currentPowertrain, getActiveSystemVariant(snap, sysId));
       const anchor = anchorObjects?.[sysId] ?? anchors[sysId];
       const outwardNormal = outwardNormals[sysId];
       if (!sys || !anchor || !outwardNormal) return;
@@ -673,9 +717,11 @@ export function createHomeOverlay(
   };
 
   return {
-    setAvailableSystems: (ids, powertrain = 'petrol') => {
+    setAvailableSystems: (ids, powertrain = 'petrol', car = null) => {
       availableIds = ids.length > 0 ? [...ids] : SYSTEMS.map((s) => s.id);
       currentPowertrain = powertrain;
+      currentCar = car;
+      lastVariantSignature = '';
       renderSystemNavs();
       syncPanelFields();
     },

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Powertrain } from '../../state/appState';
 import { disposeObject3D } from '../../scene/SceneManager';
 import {
   applyExplodeOffsets,
@@ -14,7 +15,12 @@ import type {
   SystemSimulationState,
 } from './types';
 
-export function createSystemModel(): SystemModelInstance {
+export function createSystemModel(
+  powertrain: Powertrain = 'petrol',
+  variant?: string,
+): SystemModelInstance {
+  const isDualBank = Boolean(variant && /^(v6|v8|v10|v12|flat-4|flat-6)/.test(variant));
+  const isDiesel = powertrain === 'diesel';
   const root = new THREE.Group();
   root.name = 'ExhaustCutaway';
 
@@ -45,17 +51,27 @@ export function createSystemModel(): SystemModelInstance {
     roughness: 0.5,
   });
 
-  // 1. 4-into-1 Exhaust Manifold Headers (x = -1.45 .. -0.65)
-  for (let i = 0; i < 4; i++) {
-    const zOff = (i - 1.5) * 0.16;
+  // 1. Exhaust Manifold Headers (adapts to single vs dual V/Flat banks)
+  const runnerCount = isDualBank ? 6 : 4;
+  for (let i = 0; i < runnerCount; i++) {
+    const bankSide = isDualBank ? (i < runnerCount / 2 ? -0.22 : 0.22) : 0;
+    const localIdx = isDualBank ? i % (runnerCount / 2) : i;
+    const zOff = (localIdx - (isDualBank ? 1 : 1.5)) * 0.16 + bankSide;
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-1.45, 0.38, zOff),
       new THREE.Vector3(-1.12, 0.34, zOff * 0.8),
-      new THREE.Vector3(-0.85, 0.08, zOff * 0.25),
-      new THREE.Vector3(-0.62, 0, 0),
+      new THREE.Vector3(-0.85, 0.08, bankSide * 0.55),
+      new THREE.Vector3(-0.62, 0, bankSide * 0.25),
     ]);
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.036, 10, false), headerMat);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.034, 10, false), headerMat);
     manifoldGroup.add(tube);
+  }
+  if (isDiesel) {
+    // Extra DPF / SCR aftertreatment canister downstream for diesel powertrains
+    const dpfCan = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.38, 20), shellMat);
+    dpfCan.rotation.z = Math.PI / 2;
+    dpfCan.position.set(0.16, 0, 0);
+    catGroup.add(dpfCan);
   }
 
   // 2. Oxygen (O2) Sensor screwed into collector pipe

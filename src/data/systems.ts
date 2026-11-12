@@ -1,4 +1,34 @@
-import type { Powertrain, SystemId } from '../state/appState';
+import type { EngineLayout, Powertrain, SystemId, TransmissionType } from '../state/appState';
+
+export interface VariantOption<T extends string = string> {
+  id: T;
+  shortLabel: string;
+  label: string;
+  badge?: string;
+}
+
+export const TRANSMISSION_VARIANT_OPTIONS: VariantOption<TransmissionType>[] = [
+  { id: 'manual', shortLabel: 'Manual', label: 'Manual (MT)', badge: 'H-Gate' },
+  { id: 'amt', shortLabel: 'AMT', label: 'Automated Manual (AMT)', badge: 'Actuated' },
+  { id: 'at', shortLabel: 'Automatic', label: 'Automatic (AT)', badge: 'Planetary' },
+  { id: 'cvt', shortLabel: 'CVT', label: 'CVT (Steel Belt)', badge: 'Stepless' },
+  { id: 'dct', shortLabel: 'DCT', label: 'Dual-Clutch (DCT)', badge: 'Pre-select' },
+  { id: 'ev-reducer', shortLabel: 'EV Gear', label: 'Single-Speed Reducer', badge: 'EV' },
+];
+
+export const ENGINE_VARIANT_OPTIONS: VariantOption<EngineLayout>[] = [
+  { id: 'single-cylinder', shortLabel: '1-Cyl', label: 'Single-Cylinder (Basics)' },
+  { id: 'i3', shortLabel: 'I3', label: 'Inline-3 (120°)' },
+  { id: 'i4', shortLabel: 'I4', label: 'Inline-4 (Flat-Plane)' },
+  { id: 'i6', shortLabel: 'I6', label: 'Inline-6 (Balanced)' },
+  { id: 'v6', shortLabel: 'V6', label: 'V6 (60° Bank)' },
+  { id: 'v8', shortLabel: 'V8', label: 'V8 (90° Cross-Plane)' },
+  { id: 'v10', shortLabel: 'V10', label: 'V10 (72° Bank)' },
+  { id: 'v12', shortLabel: 'V12', label: 'V12 (60° Exotic)' },
+  { id: 'flat-4', shortLabel: 'Flat-4', label: 'Flat-4 Boxer (180°)' },
+  { id: 'flat-6', shortLabel: 'Flat-6', label: 'Flat-6 Boxer (180°)' },
+  { id: 'rotary', shortLabel: 'Rotary', label: 'Wankel Rotary' },
+];
 
 export interface SystemMetadata {
   id: SystemId;
@@ -201,9 +231,132 @@ const POWERTRAIN_OVERRIDES: Partial<Record<Powertrain, Partial<Record<SystemId, 
   },
 };
 
-export function getSystemMetadata(id: SystemId, powertrain: Powertrain = 'petrol'): SystemMetadata {
+const TRANSMISSION_COPY_OVERRIDES: Partial<Record<TransmissionType, SystemCopyOverride>> = {
+  manual: {
+    name: 'Manual Transmission',
+    shortLabel: 'Manual',
+    tagline: 'Driver-controlled H-gate shifter, friction clutch, and stepped gears',
+  },
+  amt: {
+    name: 'AMT Gearbox',
+    shortLabel: 'AMT',
+    tagline: 'Computer-actuated manual gearbox with robotic clutch and shift forks',
+    plainEnglish:
+      'Uses the same rugged shafts and gears as a manual transmission, while an electronic TCU drives hydraulic or electric actuators to work the clutch and shift forks automatically.',
+    analogy: 'Like an invisible co-driver pressing the clutch and sliding the H-shifter for you.',
+    keyParts: ['Clutch Actuator', 'Shift Fork Motor', 'TCU Module', 'Countershaft', 'Differential'],
+  },
+  at: {
+    name: 'Automatic (AT)',
+    shortLabel: 'Automatic',
+    tagline: 'Fluid torque converter + planetary gearsets for seamless shifts',
+    plainEnglish:
+      'Replaces the friction clutch with a fluid torque converter that multiplies launch torque, feeding compact sun-planet-ring planetary gearsets engaged silently by hydraulic clutch packs.',
+    analogy: 'Like two desk fans facing each other in oil—fluid spin locks them together as speed rises.',
+    keyParts: ['Torque Converter', 'Planetary Gearsets', 'Clutch Packs', 'Valve Body', 'ATF Pump'],
+  },
+  cvt: {
+    name: 'CVT Transmission',
+    shortLabel: 'CVT',
+    tagline: 'Variable-width conical pulleys linked by a steel belt for stepless ratios',
+    plainEnglish:
+      'Instead of fixed gear steps, two hydraulic conical pulleys squeeze together or slide apart to vary the steel belt radius continuously—keeping the engine in its sweet spot.',
+    analogy: 'Like a bicycle derailleur sliding smoothly through infinite ratios with zero shift jolt.',
+    keyParts: ['Primary Pulley', 'Secondary Pulley', 'Steel Push-Belt', 'Forward/Reverse Planetary', 'Hydraulic Pump'],
+  },
+  dct: {
+    name: 'Dual-Clutch (DCT)',
+    shortLabel: 'DCT',
+    tagline: 'Twin concentric input shafts pre-select the next gear for lightning shifts',
+    plainEnglish:
+      'Splits gears into odd (1-3-5) and even (2-4-6) shafts, each with its own clutch. While driving in 2nd, 3rd is already waiting so one clutch releases as the other bites in milliseconds.',
+    analogy: 'Like a relay runner passing the baton at full sprint without slowing down.',
+    keyParts: ['K1/K2 Dual Clutch', 'Odd/Even Concentric Shafts', 'Mechatronic Unit', 'Synchronizers', 'Differential'],
+  },
+  'ev-reducer': {
+    name: 'Single-Speed Reducer',
+    shortLabel: 'EV Gear',
+    tagline: 'Matches high-RPM motor spin to road-wheel torque',
+  },
+};
+
+const ENGINE_COPY_OVERRIDES: Partial<Record<EngineLayout, SystemCopyOverride>> = {
+  'single-cylinder': {
+    shortLabel: '1-Cyl',
+    tagline: 'One cylinder clearly shows every beat of the 4-stroke cycle',
+  },
+  i3: {
+    name: 'Inline-3 Engine',
+    shortLabel: 'I3',
+    tagline: 'Three upright cylinders timed 240° apart for compact efficiency',
+  },
+  i4: {
+    name: 'Inline-4 Engine',
+    shortLabel: 'I4',
+    tagline: 'Four inline cylinders firing evenly every 180° of crank rotation',
+  },
+  i6: {
+    name: 'Inline-6 Engine',
+    shortLabel: 'I6',
+    tagline: 'Naturally balanced six-in-a-row cylinders firing every 120°',
+  },
+  v6: {
+    name: 'V6 Engine (60°)',
+    shortLabel: 'V6',
+    tagline: 'Two angled 3-cylinder banks sharing a compact crankshaft',
+  },
+  v8: {
+    name: 'V8 Engine (90°)',
+    shortLabel: 'V8',
+    tagline: 'Two 4-cylinder banks on a cross-plane crank delivering muscular V8 rumble',
+  },
+  v10: {
+    name: 'V10 Engine (72°)',
+    shortLabel: 'V10',
+    tagline: 'Ten cylinders firing every 72° for high-revving supercar power',
+  },
+  v12: {
+    name: 'V12 Engine (60°)',
+    shortLabel: 'V12',
+    tagline: 'Two inherently balanced 6-cylinder banks firing continuously',
+  },
+  'flat-4': {
+    name: 'Flat-4 Boxer Engine',
+    shortLabel: 'Flat-4',
+    tagline: 'Opposed horizontal cylinders punch outward together for a low center of gravity',
+  },
+  'flat-6': {
+    name: 'Flat-6 Boxer Engine',
+    shortLabel: 'Flat-6',
+    tagline: 'Six horizontally opposed pistons delivering velvety balance low in the chassis',
+  },
+  rotary: {
+    name: 'Wankel Rotary Engine',
+    shortLabel: 'Rotary',
+    tagline: 'An orbiting triangular rotor completes 4-stroke combustion inside an oval housing',
+    plainEnglish:
+      'Instead of up-and-down pistons and valves, a three-sided rotor orbits eccentrically inside an epitrochoid chamber, turning intake, squeeze, burn, and exhaust into pure rotary motion.',
+    analogy: 'Like a spinning triangle surfing smoothly inside a figure-eight racetrack.',
+    keyParts: ['Triangular Rotor', 'Trochoid Housing', 'Eccentric Shaft', 'Apex Seals', 'Intake/Exhaust Ports'],
+  },
+};
+
+export function getSystemMetadata(
+  id: SystemId,
+  powertrain: Powertrain = 'petrol',
+  variant?: string,
+): SystemMetadata {
   const base = SYSTEM_MAP[id];
-  const override = POWERTRAIN_OVERRIDES[powertrain]?.[id];
-  if (!override) return base;
-  return { ...base, ...override };
+  const ptOverride = POWERTRAIN_OVERRIDES[powertrain]?.[id];
+  let result = ptOverride ? { ...base, ...ptOverride } : base;
+
+  if (variant && id === 'transmission' && powertrain !== 'ev') {
+    const varOverride = TRANSMISSION_COPY_OVERRIDES[variant as TransmissionType];
+    if (varOverride) result = { ...result, ...varOverride };
+  } else if (variant && id === 'engine' && powertrain !== 'ev') {
+    const varOverride = ENGINE_COPY_OVERRIDES[variant as EngineLayout];
+    if (varOverride) result = { ...result, ...varOverride };
+  }
+
+  return result;
 }

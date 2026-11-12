@@ -67,6 +67,23 @@ export function createSystemModel(): SystemModelInstance {
   armRear.rotation.y = 0.12;
   armPivot.add(armFront, armRear);
 
+  // Double-Wishbone Upper Control Arm & Multi-Link Trailing Arms (toggled by sim.suspensionType)
+  const upperArmPivot = new THREE.Group();
+  upperArmPivot.position.set(-0.62, 0.28, 0);
+  const upperF = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.045, 0.065), steelMat);
+  upperF.position.set(0.32, 0, 0.09);
+  upperF.rotation.y = -0.1;
+  const upperR = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.045, 0.065), steelMat);
+  upperR.position.set(0.32, 0, -0.09);
+  upperR.rotation.y = 0.1;
+  upperArmPivot.add(upperF, upperR);
+  armGroup.add(upperArmPivot);
+
+  const multiLinkArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.72, 10), springMat);
+  multiLinkArm.rotation.z = Math.PI / 2;
+  multiLinkArm.position.set(-0.34, 0.02, -0.22);
+  armGroup.add(multiLinkArm);
+
   // 3. Shock Absorber (Damper) Body + Chrome Piston Rod
   const damperBody = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.56, 20), darkMetalMat);
   damperBody.position.set(0.06, 0.34, 0);
@@ -124,13 +141,16 @@ export function createSystemModel(): SystemModelInstance {
   let roadOffset = 0;
   let elapsed = 0;
 
-  const updateRoadAndFlex = (offset: number) => {
+  const updateRoadAndFlex = (offset: number, bumpScale = 1, suspType: string = 'double-wishbone') => {
+    upperArmPivot.visible = suspType === 'double-wishbone' || suspType === 'multi-link';
+    multiLinkArm.visible = suspType === 'multi-link';
+
     // Bump wave passing cleanly under the tire at x = 0.35
     let bumpUnderTire = 0;
     for (let i = 0; i < blockCount; i++) {
       const x = ((i / blockCount) * 3.8 - 1.9 + offset) % 3.8;
       const wrappedX = x < -1.9 ? x + 3.8 : x > 1.9 ? x - 3.8 : x;
-      const bump = Math.max(0, Math.cos((wrappedX - 0.35) * 3.2)) * 0.16 *
+      const bump = Math.max(0, Math.cos((wrappedX - 0.35) * 3.2)) * 0.16 * bumpScale *
         (Math.abs(wrappedX - 0.35) < 0.48 ? 1 : 0);
       if (Math.abs(wrappedX - 0.35) < 0.12) {
         bumpUnderTire = bump;
@@ -142,9 +162,10 @@ export function createSystemModel(): SystemModelInstance {
     }
     roadMesh.instanceMatrix.needsUpdate = true;
 
-    const flex = Math.max(0, Math.sin(elapsed * 2.2)) * 0.24 + bumpUnderTire * 0.65;
+    const flex = Math.max(0, Math.sin(elapsed * 2.2)) * 0.24 * bumpScale + bumpUnderTire * 0.65;
     wheelAssembly.position.y = -0.1 + flex;
     armPivot.rotation.z = flex * 0.34;
+    upperArmPivot.rotation.z = flex * 0.36;
     coilMesh.scale.y = 1 - flex * 0.72;
     coilMesh.position.y = 0.66 + flex * 0.32;
     damperBody.position.y = 0.34 + flex * 0.48;
@@ -171,7 +192,7 @@ export function createSystemModel(): SystemModelInstance {
         tire.rotation.z -= step * 3.2;
         rim.rotation.y -= step * 3.2;
       }
-      updateRoadAndFlex(roadOffset);
+      updateRoadAndFlex(roadOffset, sim.roadBump ?? 1, sim.suspensionType ?? 'double-wishbone');
       const stage = Math.min(3, Math.floor(((elapsed * 2.2) % (Math.PI * 2)) / (Math.PI * 0.5)));
       return { phaseIndex: stage };
     },
