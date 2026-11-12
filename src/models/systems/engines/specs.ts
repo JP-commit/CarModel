@@ -116,7 +116,7 @@ export const ENGINE_PRESETS: Record<EngineLayout, EnginePresetMeta> = {
       injection: 'gdi',
       hybrid: 'none',
     },
-    crankThrowsDeg: [0, 60, 120, 180, 240, 300],
+    crankThrowsDeg: [0, 120, 240, 0, 120, 240],
     balanceRating: 'Compact 60° even-fire V-bank',
     redlineRpm: 7400,
     baseTorquePerLiterNm: 108,

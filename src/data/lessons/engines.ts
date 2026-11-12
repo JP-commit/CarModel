@@ -6,7 +6,14 @@ function makeEngineParts(sparkName: string, boostPart?: LessonPartData): LessonP
   const base = SYSTEM_LESSONS.engine.parts.map((p) =>
     p.id === 'spark-plug' ? { ...p, name: sparkName } : p,
   );
-  return boostPart ? [...base, boostPart] : base;
+  const oilPanPart: LessonPartData = {
+    id: 'oil-pan',
+    name: 'Oil Pan / Sump',
+    plainEnglish:
+      'A stepped reservoir bolted beneath the crankcase that stores motor oil and cools it before the oil pump recirculates it.',
+    analogy: 'Like the bottom oil reservoir tray keeping every moving bearing lubricated.',
+  };
+  return boostPart ? [...base, oilPanPart, boostPart] : [...base, oilPanPart];
 }
 
 const SINGLE_PETROL: SystemLessonData = {
@@ -139,6 +146,12 @@ const ROTARY_LESSON: SystemLessonData = {
       name: 'Eccentric Output Shaft',
       plainEnglish: 'Translates the rotor’s wobbly planetary orbit into fast, concentric flywheel rotation (3× rotor speed).',
       analogy: 'Like an off-center bicycle crank turning an orbiting ring into pure spin.',
+    },
+    {
+      id: 'phasing-gear',
+      name: 'Stationary Phasing Gear',
+      plainEnglish: 'A fixed 16-tooth sun gear bolted to the housing that meshes with the rotor’s 24-tooth internal ring gear to lock its 3:1 orbit.',
+      analogy: 'Like the central gear in a Spirograph keeping the triangle tracing a smooth peanut track.',
     },
     {
       id: 'spark-plug',

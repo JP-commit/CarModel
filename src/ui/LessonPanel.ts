@@ -23,6 +23,8 @@ import { bindVariantPickerEvents, renderVariantPickerMarkup } from './variantPic
 export interface LessonPanelActions {
   onBackToCar: () => void;
   onSelectPart: (partId: string | null) => void;
+  onTogglePartVisibility?: (partId: string) => void;
+  onShowAllParts?: () => void;
   onSimChange: (patch: Partial<SystemSimulationState>) => void;
   onChangeVariant?: (systemId: SystemId, variant: string) => void;
   onChangeClip?: (axis: ClipAxis, ratio: number) => void;
@@ -64,12 +66,20 @@ export function createLessonPanel(
   let phasePills: HTMLElement[] = [];
   let phaseCaption: HTMLElement | null = null;
   let partChipEls = new Map<string, HTMLButtonElement>();
+  let partItemEls = new Map<string, HTMLElement>();
+  let partEyeEls = new Map<string, HTMLButtonElement>();
   let partCalloutEls = new Map<string, HTMLButtonElement>();
+  let showAllBtn: HTMLButtonElement | null = null;
   let inspectorBox: HTMLElement | null = null;
+  let activeSelectedPartId: string | null = null;
   let labelsVisible = true;
   let sheetBinding: MobileSheetBinding | null = null;
 
+  const EYE_OPEN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>`;
+  const EYE_OFF_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a2.6 2.6 0 0 0 3.6 3.6"/><path d="M9.9 5.2A9.8 9.8 0 0 1 12 5.5c6.2 0 10 6.5 10 6.5a17 17 0 0 1-3.4 4.2M6.6 6.6A17 17 0 0 0 2 12s3.8 6.5 10 6.5c1.5 0 2.9-.3 4.1-.8"/></svg>`;
+
   const updateInspector = (partId: string | null) => {
+    activeSelectedPartId = partId;
     if (!inspectorBox || !currentLesson) return;
     if (!partId) {
       inspectorBox.innerHTML = `
@@ -82,8 +92,14 @@ export function createLessonPanel(
     }
     const part = currentLesson.parts.find((p) => p.id === partId);
     if (!part) return;
+    const isHidden = appStore.getSnapshot().hiddenParts.has(partId);
     inspectorBox.innerHTML = `
-      <div class="section-label">SELECTED PART</div>
+      <div class="inspector-head-row">
+        <div class="section-label" style="margin:0">SELECTED PART</div>
+        <button type="button" class="btn btn-inspector-vis" id="btn-inspector-toggle-vis">
+          ${isHidden ? `${EYE_OPEN_SVG} Show Part` : `${EYE_OFF_SVG} Hide Part`}
+        </button>
+      </div>
       <h3>${part.name}</h3>
       <p>${part.plainEnglish}</p>
       <div class="analogy-box" style="margin-bottom:0">
@@ -91,6 +107,33 @@ export function createLessonPanel(
         <span>${part.analogy}</span>
       </div>
     `;
+    inspectorBox.querySelector('#btn-inspector-toggle-vis')?.addEventListener('click', () => {
+      actions.onTogglePartVisibility?.(part.id);
+    });
+  };
+
+  const syncHiddenPartsUI = (hiddenParts: Set<string>) => {
+    for (const [id, item] of partItemEls.entries()) {
+      const isHidden = hiddenParts.has(id);
+      item.classList.toggle('is-part-hidden', isHidden);
+      const eyeBtn = partEyeEls.get(id);
+      if (eyeBtn) {
+        eyeBtn.innerHTML = isHidden ? EYE_OFF_SVG : EYE_OPEN_SVG;
+        eyeBtn.setAttribute('aria-pressed', String(isHidden));
+        const labelBase = partChipEls.get(id)?.textContent ?? id;
+        eyeBtn.setAttribute('aria-label', `${isHidden ? 'Show' : 'Hide'} ${labelBase}`);
+      }
+    }
+    if (showAllBtn) {
+      showAllBtn.hidden = hiddenParts.size === 0;
+    }
+    if (activeSelectedPartId) {
+      const visBtn = inspectorBox?.querySelector<HTMLButtonElement>('#btn-inspector-toggle-vis');
+      if (visBtn) {
+        const isHidden = hiddenParts.has(activeSelectedPartId);
+        visBtn.innerHTML = isHidden ? `${EYE_OPEN_SVG} Show Part` : `${EYE_OFF_SVG} Hide Part`;
+      }
+    }
   };
 
   const highlightPartUI = (partId: string | null) => {
@@ -261,19 +304,35 @@ export function createLessonPanel(
         </div>
       </details>
 
-      <div class="section-label">KEY COMPONENTS</div>
+      <div class="key-parts-header-row">
+        <div class="section-label" style="margin:0">KEY COMPONENTS</div>
+        <button type="button" class="btn-show-all-parts" id="btn-lesson-show-all" ${snap.hiddenParts.size === 0 ? 'hidden' : ''}>
+          Show All Parts
+        </button>
+      </div>
       <div class="key-parts-row" id="lesson-parts-chips">
         ${lesson.parts
-          .map(
-            (part) => `
-              <button
-                type="button"
-                class="key-part-chip"
-                data-part-id="${part.id}"
-                aria-pressed="false"
-              >${part.name}</button>
-            `,
-          )
+          .map((part) => {
+            const isHidden = snap.hiddenParts.has(part.id);
+            return `
+              <div class="key-part-item${isHidden ? ' is-part-hidden' : ''}" data-part-id="${part.id}">
+                <button
+                  type="button"
+                  class="key-part-chip"
+                  data-part-id="${part.id}"
+                  aria-pressed="false"
+                >${part.name}</button>
+                <button
+                  type="button"
+                  class="key-part-eye-btn"
+                  data-eye-part-id="${part.id}"
+                  aria-pressed="${isHidden}"
+                  aria-label="${isHidden ? 'Show' : 'Hide'} ${part.name}"
+                  title="Show / Hide ${part.name}"
+                >${isHidden ? EYE_OFF_SVG : EYE_OPEN_SVG}</button>
+              </div>
+            `;
+          })
           .join('')}
       </div>
 
@@ -311,8 +370,11 @@ export function createLessonPanel(
     };
     syncQuizBtn();
     quizBtn.addEventListener('click', () => actions.onOpenQuiz(systemId));
-    unsubQuiz = appStore.subscribe(() => {
-      if (currentLesson?.id === systemId) syncQuizBtn();
+    unsubQuiz = appStore.subscribe((nextSnap) => {
+      if (currentLesson?.id === systemId) {
+        syncQuizBtn();
+        syncHiddenPartsUI(nextSnap.hiddenParts);
+      }
     });
 
     phasePills = Array.from(panel.querySelectorAll<HTMLElement>('.phase-pill'));
@@ -333,6 +395,12 @@ export function createLessonPanel(
     inspectorBox = panel.querySelector<HTMLElement>('#lesson-inspector')!;
 
     partChipEls.clear();
+    partItemEls.clear();
+    partEyeEls.clear();
+    for (const item of panel.querySelectorAll<HTMLElement>('.key-part-item')) {
+      const id = item.dataset.partId!;
+      partItemEls.set(id, item);
+    }
     for (const chip of panel.querySelectorAll<HTMLButtonElement>('.key-part-chip')) {
       const id = chip.dataset.partId!;
       partChipEls.set(id, chip);
@@ -341,6 +409,16 @@ export function createLessonPanel(
         actions.onSelectPart(alreadyActive ? null : id);
       });
     }
+    for (const eye of panel.querySelectorAll<HTMLButtonElement>('.key-part-eye-btn')) {
+      const id = eye.dataset.eyePartId!;
+      partEyeEls.set(id, eye);
+      eye.addEventListener('click', (e) => {
+        e.stopPropagation();
+        actions.onTogglePartVisibility?.(id);
+      });
+    }
+    showAllBtn = panel.querySelector<HTMLButtonElement>('#btn-lesson-show-all');
+    showAllBtn?.addEventListener('click', () => actions.onShowAllParts?.());
 
     panel.querySelector('#btn-lesson-back')!.addEventListener('click', actions.onBackToCar);
 
@@ -505,7 +583,11 @@ export function createLessonPanel(
     panel.inert = true;
     panel.innerHTML = '';
     partChipEls.clear();
+    partItemEls.clear();
+    partEyeEls.clear();
     partCalloutEls.clear();
+    showAllBtn = null;
+    activeSelectedPartId = null;
   };
 
   return {

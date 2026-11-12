@@ -165,7 +165,21 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  const syncHiddenPartsToLesson = (hidden: Set<string>) => {
+    if (activeLessonModel) {
+      for (const obj of activeLessonModel.partObjects) {
+        const pid = obj.userData.partId as string | undefined;
+        if (pid) {
+          obj.visible = !hidden.has(pid);
+        }
+      }
+    }
+    activeLessonOutline?.setHiddenParts(hidden);
+  };
+  appStore.subscribe((s) => syncHiddenPartsToLesson(s.hiddenParts));
+
   const cleanupActiveSubMode = () => {
+    appStore.showAllParts();
     crossSection.clear();
     measureRuler.setActive(false);
     liveCaptionBar.hidden = true;
@@ -398,6 +412,7 @@ async function bootstrap(): Promise<void> {
   };
 
   const handleVariantChange = async (systemId: SystemId, nextVariant: string) => {
+    appStore.showAllParts();
     if (systemId === 'transmission') {
       appStore.update({ selectedTransmission: nextVariant as TransmissionType });
     } else if (systemId === 'engine') {
@@ -439,6 +454,12 @@ async function bootstrap(): Promise<void> {
       activeLessonModel?.highlightPart(partId);
       activeLessonOutline?.highlightPart(partId);
       lessonPanel.highlightPartUI(partId);
+    },
+    onTogglePartVisibility: (partId) => {
+      appStore.togglePartVisibility(partId);
+    },
+    onShowAllParts: () => {
+      appStore.showAllParts();
     },
     onSimChange: (patch) => {
       Object.assign(lessonSim, patch);
@@ -831,6 +852,7 @@ async function bootstrap(): Promise<void> {
     car: CarManifestEntry,
     options: { preserveSystem?: boolean; updateUrl?: boolean } = {},
   ): Promise<void> {
+    appStore.showAllParts();
     const token = ++carSwitchToken;
     errorCard.hide();
     carPicker.close(false);
@@ -1118,7 +1140,9 @@ async function bootstrap(): Promise<void> {
     setRaycasterFromPointer(e.clientX, e.clientY);
 
     if (mode === 'lesson' && activeLessonModel) {
-      const hits = raycaster.intersectObjects(activeLessonModel.partObjects, true);
+      const hits = raycaster
+        .intersectObjects(activeLessonModel.partObjects, true)
+        .filter((h) => isObjectVisible(h.object));
       if (hits.length > 0) {
         if (measureRuler.isActive()) {
           const msg = measureRuler.recordPoint(hits[0].point);

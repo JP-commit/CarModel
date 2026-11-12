@@ -17,6 +17,7 @@ export interface LessonOutlineController {
   setRenderMode: (mode: RenderMode) => void;
   setXRay: (enabled: boolean) => void;
   highlightPart: (partId: string | null) => void;
+  setHiddenParts: (hidden: Set<string>) => void;
   setResolution: (width: number, height: number) => void;
   syncDynamicGeometries: () => void;
   dispose: () => void;
@@ -167,10 +168,19 @@ export function createLessonOutlineController(
   let currentMode: RenderMode = 'solid';
   let currentXray = false;
   let currentPartId: string | null = null;
+  let currentHidden = new Set<string>();
 
   const applyState = () => {
     const isOutline = currentMode === 'outline';
     for (const rec of records) {
+      const isHidden = rec.partId !== null && currentHidden.has(rec.partId);
+      rec.mesh.visible = !isHidden;
+
+      if (isHidden) {
+        if (rec.edgeLine) rec.edgeLine.visible = false;
+        continue;
+      }
+
       const partMatch = currentPartId !== null && rec.partId === currentPartId;
       const isXrayCasing = currentXray && rec.partId !== null && xraySet.has(rec.partId);
 
@@ -220,6 +230,10 @@ export function createLessonOutlineController(
     },
     highlightPart: (partId: string | null) => {
       currentPartId = partId;
+      applyState();
+    },
+    setHiddenParts: (hidden: Set<string>) => {
+      currentHidden = new Set(hidden);
       applyState();
     },
     setResolution: (width: number, height: number) => {

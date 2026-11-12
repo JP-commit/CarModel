@@ -91,6 +91,7 @@ export interface AppState {
   clipRatio: number;
   selectedSystem: SystemId | null;
   selectedPartId: string | null;
+  hiddenParts: Set<string>;
   isolationMode: IsolationMode;
   graphicsQuality: GraphicsQuality;
   paintColor: string;
@@ -405,6 +406,7 @@ class AppStateStore {
       clipRatio: 0.5,
       selectedSystem: null,
       selectedPartId: null,
+      hiddenParts: new Set<string>(),
       isolationMode: loadInitialIsolationMode(),
       graphicsQuality: loadInitialQuality(),
       paintColor: loadInitialPaintColor(),
@@ -535,6 +537,21 @@ class AppStateStore {
     for (const listener of this.listeners) {
       listener(this.state);
     }
+  }
+
+  togglePartVisibility(partId: string): void {
+    const next = new Set(this.state.hiddenParts);
+    if (next.has(partId)) {
+      next.delete(partId);
+    } else {
+      next.add(partId);
+    }
+    this.update({ hiddenParts: next });
+  }
+
+  showAllParts(): void {
+    if (this.state.hiddenParts.size === 0) return;
+    this.update({ hiddenParts: new Set<string>() });
   }
 
   saveQuizScore(

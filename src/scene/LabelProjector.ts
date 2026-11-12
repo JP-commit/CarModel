@@ -58,8 +58,23 @@ export class LabelProjector {
 
     for (const entry of this.entries) {
       if (entry.anchor instanceof THREE.Object3D) {
+        let cur: THREE.Object3D | null = entry.anchor;
+        let anchorVisible = true;
+        while (cur) {
+          if (!cur.visible) {
+            anchorVisible = false;
+            break;
+          }
+          cur = cur.parent;
+        }
+        if (!anchorVisible) {
+          entry.element.style.display = 'none';
+          continue;
+        }
+        entry.element.style.display = '';
         entry.anchor.getWorldPosition(this.worldPos);
       } else {
+        entry.element.style.display = '';
         this.worldPos.copy(entry.anchor);
       }
 

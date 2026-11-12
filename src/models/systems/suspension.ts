@@ -14,6 +14,67 @@ import type {
   SystemSimulationState,
 } from './types';
 
+export interface SuspensionRoadSample {
+  bumpWorldX: number;
+  bumpUnderTire: number;
+  phaseIndex: number;
+}
+
+const ROAD_LEN = 3.8;
+const TIRE_X = 0.35;
+const TIRE_OUTER_R = 0.5;
+const BUMP_HALF_W = 0.44;
+const BUMP_MAX_H = 0.19;
+
+export function evalRoadBumpAtWorldX(
+  worldX: number,
+  bumpWorldX: number,
+  bumpScale: number,
+): number {
+  let dx = worldX - bumpWorldX;
+  if (dx > ROAD_LEN * 0.5) dx -= ROAD_LEN;
+  if (dx < -ROAD_LEN * 0.5) dx += ROAD_LEN;
+  if (Math.abs(dx) >= BUMP_HALF_W) return 0;
+  return Math.cos((dx / BUMP_HALF_W) * Math.PI * 0.5) ** 2 * BUMP_MAX_H * bumpScale;
+}
+
+/**
+ * Computes moving bump center & exact tire contact height (with circular tire profile)
+ * so the bump rolls across the road and touches the tire cleanly only when underneath.
+ */
+export function computeSuspensionRoadSample(
+  roadOffset: number,
+  bumpScale = 1,
+): SuspensionRoadSample {
+  const bumpWorldX = (((roadOffset % ROAD_LEN) + ROAD_LEN) % ROAD_LEN) - ROAD_LEN * 0.5;
+  let maxContactLift = 0;
+  for (let s = -4; s <= 4; s++) {
+    const sampleX = TIRE_X + s * 0.06;
+    const roadH = evalRoadBumpAtWorldX(sampleX, bumpWorldX, bumpScale);
+    const tireCurveDrop = TIRE_OUTER_R - Math.sqrt(Math.max(0.01, TIRE_OUTER_R * TIRE_OUTER_R - (s * 0.06) ** 2));
+    const liftNeeded = Math.max(0, roadH - tireCurveDrop);
+    if (liftNeeded > maxContactLift) maxContactLift = liftNeeded;
+  }
+
+  let dxFromBump = TIRE_X - bumpWorldX;
+  if (dxFromBump > ROAD_LEN * 0.5) dxFromBump -= ROAD_LEN;
+  if (dxFromBump < -ROAD_LEN * 0.5) dxFromBump += ROAD_LEN;
+
+  // Phase 0: Flat Roll, 1: Bump Impact (front edge), 2: Full Compression (peak), 3: Rebound
+  let phaseIndex = 0;
+  if (maxContactLift > 0.015) {
+    if (dxFromBump > 0.1) phaseIndex = 1;
+    else if (dxFromBump >= -0.1) phaseIndex = 2;
+    else phaseIndex = 3;
+  }
+
+  return {
+    bumpWorldX,
+    bumpUnderTire: maxContactLift,
+    phaseIndex,
+  };
+}
+
 export function createSystemModel(): SystemModelInstance {
   const root = new THREE.Group();
   root.name = 'SuspensionCutaway';
@@ -139,37 +200,36 @@ export function createSystemModel(): SystemModelInstance {
 
   const dummy = new THREE.Object3D();
   let roadOffset = 0;
-  let elapsed = 0;
+  let currentPhase = 0;
 
   const updateRoadAndFlex = (offset: number, bumpScale = 1, suspType: string = 'double-wishbone') => {
     upperArmPivot.visible = suspType === 'double-wishbone' || suspType === 'multi-link';
     multiLinkArm.visible = suspType === 'multi-link';
 
-    // Bump wave passing cleanly under the tire at x = 0.35
-    let bumpUnderTire = 0;
+    const sample = computeSuspensionRoadSample(offset, bumpScale);
+    currentPhase = sample.phaseIndex;
+
     for (let i = 0; i < blockCount; i++) {
-      const x = ((i / blockCount) * 3.8 - 1.9 + offset) % 3.8;
-      const wrappedX = x < -1.9 ? x + 3.8 : x > 1.9 ? x - 3.8 : x;
-      const bump = Math.max(0, Math.cos((wrappedX - 0.35) * 3.2)) * 0.16 * bumpScale *
-        (Math.abs(wrappedX - 0.35) < 0.48 ? 1 : 0);
-      if (Math.abs(wrappedX - 0.35) < 0.12) {
-        bumpUnderTire = bump;
-      }
-      dummy.position.set(wrappedX, -0.64 + bump * 0.5, 0);
-      dummy.scale.set(1, 1 + bump * 6, 1);
+      const s = (i / blockCount) * ROAD_LEN;
+      const wrappedX = (((s + offset) % ROAD_LEN) + ROAD_LEN) % ROAD_LEN - ROAD_LEN * 0.5;
+      const h = evalRoadBumpAtWorldX(wrappedX, sample.bumpWorldX, bumpScale);
+      // Keep bottom of road block anchored at y = -0.66 so top surface is exactly at -0.60 + h
+      dummy.position.set(wrappedX, -0.63 + h * 0.5, 0);
+      dummy.scale.set(1, (0.06 + h) / 0.06, 1);
       dummy.updateMatrix();
       roadMesh.setMatrixAt(i, dummy.matrix);
     }
     roadMesh.instanceMatrix.needsUpdate = true;
 
-    const flex = Math.max(0, Math.sin(elapsed * 2.2)) * 0.24 * bumpScale + bumpUnderTire * 0.65;
+    // Tire outer radius = 0.38 + 0.12 = 0.50; rest wheel center y = -0.10 => rest bottom = -0.60
+    const flex = sample.bumpUnderTire;
     wheelAssembly.position.y = -0.1 + flex;
-    armPivot.rotation.z = flex * 0.34;
-    upperArmPivot.rotation.z = flex * 0.36;
-    coilMesh.scale.y = 1 - flex * 0.72;
-    coilMesh.position.y = 0.66 + flex * 0.32;
-    damperBody.position.y = 0.34 + flex * 0.48;
-    innerPiston.position.y = 0.44 + flex * 0.18;
+    armPivot.rotation.z = Math.atan2(flex, 0.86);
+    upperArmPivot.rotation.z = Math.atan2(flex, 0.66);
+    coilMesh.scale.y = Math.max(0.45, 1 - flex * 1.15);
+    coilMesh.position.y = 0.66 + flex * 0.45;
+    damperBody.position.y = 0.34 + flex * 0.72;
+    innerPiston.position.y = 0.44 + flex * 0.25;
   };
 
   updateRoadAndFlex(0);
@@ -187,14 +247,12 @@ export function createSystemModel(): SystemModelInstance {
       const motionFactor = sim.reduceMotion ? 0.35 : 1;
       if (sim.playing) {
         const step = dt * sim.speed * motionFactor;
-        elapsed += step;
         roadOffset += step * 1.15;
-        tire.rotation.z -= step * 3.2;
-        rim.rotation.y -= step * 3.2;
+        tire.rotation.z -= step * 2.3;
+        rim.rotation.y -= step * 2.3;
       }
       updateRoadAndFlex(roadOffset, sim.roadBump ?? 1, sim.suspensionType ?? 'double-wishbone');
-      const stage = Math.min(3, Math.floor(((elapsed * 2.2) % (Math.PI * 2)) / (Math.PI * 0.5)));
-      return { phaseIndex: stage };
+      return { phaseIndex: currentPhase };
     },
     highlightPart: partCtrl.highlightPart,
     setExplode: (amount: number) => applyExplodeOffsets(explodables, Math.max(0, Math.min(1, amount))),

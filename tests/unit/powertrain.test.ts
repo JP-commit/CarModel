@@ -17,6 +17,12 @@ import {
 } from '../../src/models/systems/engines/specs';
 import { solveCvtBeltRadii } from '../../src/models/systems/transmissions/cvt';
 import {
+  computeWankelApexPosition,
+  WANKEL_ECCENTRICITY,
+  WANKEL_ROTOR_RADIUS,
+} from '../../src/models/systems/engines/rotary';
+import { computeSuspensionRoadSample } from '../../src/models/systems/suspension';
+import {
   getQuizProgressKey,
   getSavedQuizScore,
   VALID_ENGINE_LAYOUTS,
@@ -161,5 +167,30 @@ describe('Manifest Defaults, Allowlists & Quiz Variants', () => {
     );
     expect(placement.targetExtent).toBeGreaterThan(0.4);
     expect(placement.targetExtent).toBeLessThan(1.0);
+  });
+
+  it('keeps traveling suspension bump aligned under the tire only when at TIRE_X', () => {
+    const away = computeSuspensionRoadSample(0, 1);
+    expect(away.bumpWorldX).toBeCloseTo(-1.9, 4);
+    expect(away.bumpUnderTire).toBe(0);
+    expect(away.phaseIndex).toBe(0);
+
+    const underTire = computeSuspensionRoadSample(2.25, 1);
+    expect(underTire.bumpWorldX).toBeCloseTo(0.35, 4);
+    expect(underTire.bumpUnderTire).toBeGreaterThan(0.18);
+    expect(underTire.phaseIndex).toBe(2);
+  });
+
+  it('tracks exact Wankel epitrochoid locus across all three rotor apexes', () => {
+    for (let deg = 0; deg <= 720; deg += 45) {
+      const shaftRad = (deg * Math.PI) / 180;
+      for (let apex = 0; apex < 3; apex++) {
+        const pt = computeWankelApexPosition(shaftRad, apex);
+        const expectedX = WANKEL_ROTOR_RADIUS * Math.cos(pt.u) - WANKEL_ECCENTRICITY * Math.cos(3 * pt.u);
+        const expectedY = WANKEL_ROTOR_RADIUS * Math.sin(pt.u) - WANKEL_ECCENTRICITY * Math.sin(3 * pt.u);
+        expect(pt.x).toBeCloseTo(expectedX, 6);
+        expect(pt.y).toBeCloseTo(expectedY, 6);
+      }
+    }
   });
 });

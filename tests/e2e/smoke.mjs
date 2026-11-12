@@ -133,6 +133,76 @@ try {
   const variantCountEv = await page.locator('#home-variant-slot .variant-seg-btn').count();
   if (variantCountEv !== 0) throw new Error(`Expected 0 engine variants on EV, got ${variantCountEv}`);
 
+  // 6b. BMW M8 (V8) Solid + Outline + Per-Part Show/Hide Toggle verification
+  await page.goto('http://localhost:4179/?car=bmw-m8', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.loader-banner.is-done');
+  await page.click('.rail-btn[data-system-id="engine"]');
+  await page.click('#btn-start-animation');
+  await page.waitForSelector('#engine-firing-strip .firing-cyl-pill');
+  await page.waitForSelector('.key-part-eye-btn[data-eye-part-id="cylinder-block"]');
+  await page.waitForSelector('.key-part-eye-btn[data-eye-part-id="oil-pan"]');
+
+  // Toggle Solid mode and check screenshot + Hide Cylinder Block -> Show All Parts
+  await page.click('.render-mode-btn[data-render-mode="solid"]');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-render-mode') === 'solid');
+  await page.waitForTimeout(350);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/v8_m8_solid.png',
+  });
+
+  // Hide Cylinder Block and verify Show All Parts appears + block label hides
+  await page.click('.key-part-eye-btn[data-eye-part-id="cylinder-block"]');
+  await page.waitForSelector('#btn-lesson-show-all:not([hidden])');
+  await page.waitForTimeout(250);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/v8_m8_block_hidden.png',
+  });
+  await page.click('#btn-lesson-show-all');
+  await page.waitForSelector('#btn-lesson-show-all[hidden]', { state: 'attached' });
+
+  // Switch back to Outline mode for V8 verification
+  await page.click('.render-mode-btn[data-render-mode="outline"]');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-render-mode') === 'outline');
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/v8_m8_outline.png',
+  });
+
+  // 6c. Suspension: verify traveling road bump lifts wheel only when under tire (Flat Roll vs Compression)
+  await page.goto('http://localhost:4179/?car=coupe', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.loader-banner.is-done');
+  await page.click('.rail-btn[data-system-id="suspension"]');
+  await page.click('#btn-start-animation');
+  await page.click('.render-mode-btn[data-render-mode="solid"]');
+  await page.waitForSelector('.phase-pill[data-phase="0"].is-current', { timeout: 10000 });
+  await page.waitForTimeout(100);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/susp_flat.png',
+  });
+  await page.waitForSelector('.phase-pill[data-phase="2"].is-current', { timeout: 10000 });
+  await page.waitForTimeout(40);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/susp_bump.png',
+  });
+
+  // 6d. Rotary Wankel Engine: phasing gears + intake/exhaust streams in Solid and Outline modes
+  await page.goto('http://localhost:4179/?car=coupe&engine=rotary', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.loader-banner.is-done');
+  await page.click('.rail-btn[data-system-id="engine"]');
+  await page.click('#btn-start-animation');
+  await page.waitForSelector('.key-part-eye-btn[data-eye-part-id="phasing-gear"]');
+  await page.click('.render-mode-btn[data-render-mode="solid"]');
+  await page.waitForTimeout(350);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/rotary_solid.png',
+  });
+  await page.click('.render-mode-btn[data-render-mode="outline"]');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-render-mode') === 'outline');
+  await page.waitForTimeout(350);
+  await page.screenshot({
+    path: '/home/jp/.gemini/antigravity/brain/03a94b53-1f19-4b6e-821a-3a32ca8dee99/rotary_outline.png',
+  });
+
   // 7. Mobile viewport check (dropdown variant selector visible)
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('http://localhost:4179/?car=sedan', { waitUntil: 'networkidle' });
